@@ -316,7 +316,7 @@ function isExpD(d){return daysLeft(d)<0;}
 function isWarnD(d){const n=daysLeft(d);return n>=0&&n<=3;}
 
 // ingredient utils
-function up(i){return i.purchaseAmount?i.purchasePrice/i.purchaseAmount:0;}
+function up(i){return i.purchaseAmount?(i.purchasePrice/i.purchaseAmount)*1.08:0;}
 function isLow(i){return i.initialStock>0&&(i.currentStock/i.initialStock)<0.2;}
 function isExpI(i){return i.expiryDate&&isExpD(i.expiryDate);}
 function isWarnI(i){return i.expiryDate&&isWarnD(i.expiryDate);}
@@ -579,13 +579,13 @@ function rRecEdit(){
   const pv={id:'',name:rF.name,servingsPerPot:Number(rF.servings)||1,ingredients:rF.ingredients,createdAt:''};
   const cp=potCost(pv),cs=srvCost(pv);
   const avail=DB.ingredients.filter(i=>!rF.ingredients.find(r=>r.ingredientId===i.id));
-  const pickerH=rPO?`<div class="picker">${avail.length===0?'<div class="pmt">追加できる食材がありません</div>':avail.map(i=>`<div class="pi" onclick="addIR('${i.id}')"><span>${i.name}</span><span class="tmut">¥${ff(up(i),2)}/g</span></div>`).join('')}</div>`:'';
+  const pickerH=rPO?`<div class="picker">${avail.length===0?'<div class="pmt">追加できる食材がありません</div>':avail.map(i=>`<div class="pi" onclick="addIR('${i.id}')"><span>${i.name}</span><span class="tmut">¥${ff(up(i),2)}/g 税込</span></div>`).join('')}</div>`:'';
   const ingR=rF.ingredients.map((ri,idx)=>{
     const i=DB.ingredients.find(x=>x.id===ri.ingredientId);if(!i)return'';
     const cost=up(i)*ri.amountPerPot;
     return`<div class="ier"><div class="fbb mb2"><span class="fbold" style="font-size:13px">${i.name}</span><div class="fb g2"><span class="tgold fbold" style="font-size:13px">¥${ff(cost)}</span><button class="btn bor bsm" style="padding:4px 9px" onclick="remIR(${idx})">✕</button></div></div>
     <input type="number" inputmode="decimal" placeholder="使用量 (g)" value="${ri.amountPerPot||''}" onchange="rF.ingredients[${idx}].amountPerPot=Number(this.value);rRec()">
-    <div class="tmut mt2">単価: ¥${ff(up(i),2)}/g</div></div>`;
+    <div class="tmut mt2">単価: ¥${ff(up(i),2)}/g（税込）</div></div>`;
   }).join('');
   document.getElementById('s-recipe').innerHTML=`<div class="shdr"><button class="bbk" onclick="rV='list';rRec()">←</button><h2>${rEd?'レシピを編集':'新規レシピ'}</h2><button class="btn bp bsm" style="width:auto" onclick="saveR()">保存</button></div>
   <div class="sbody">
@@ -687,7 +687,7 @@ function rIngEdit(){
   <div class="sbody">
     <div class="field"><label>食材・スパイス名 *</label><input type="text" value="${iF.name}" placeholder="例: クミンシード" oninput="iF.name=this.value"></div>
     <div class="r2"><div class="field"><label>現在の在庫量 (g) *</label><input type="number" inputmode="decimal" value="${iF.currentStock}" placeholder="0" onchange="iF.currentStock=this.value"></div><div class="field"><label>初期在庫量 (g)</label><input type="number" inputmode="decimal" value="${iF.initialStock}" placeholder="現在量と同じ" onchange="iF.initialStock=this.value"></div></div>
-    <div class="r2"><div class="field"><label>購入金額（円）*</label><input type="number" inputmode="decimal" value="${iF.purchasePrice}" placeholder="0" onchange="iF.purchasePrice=this.value;rIngEdit()"></div><div class="field"><label>購入量（g）*</label><input type="number" inputmode="decimal" value="${iF.purchaseAmount}" placeholder="0" onchange="iF.purchaseAmount=this.value;rIngEdit()"></div></div>
+    <div class="r2"><div class="field"><label>購入金額（円・税抜）*</label><input type="number" inputmode="decimal" value="${iF.purchasePrice}" placeholder="0" onchange="iF.purchasePrice=this.value;rIngEdit()"></div><div class="field"><label>購入量（g）*</label><input type="number" inputmode="decimal" value="${iF.purchaseAmount}" placeholder="0" onchange="iF.purchaseAmount=this.value;rIngEdit()"></div></div>
     ${u?`<div class="prev mb2"><div class="prow"><span class="plbl">自動計算 1gあたり単価</span><span class="fbold tgold" style="font-size:15px">¥${u}/g</span></div></div>`:''}
     <div class="field"><label>消費期限（任意）</label><input type="date" value="${iF.expiryDate}" onchange="iF.expiryDate=this.value"></div>
     <div class="brow"><button class="btn bs" onclick="iV='list';rInv()">キャンセル</button><button class="btn bp" onclick="saveI()">保存する</button></div>
