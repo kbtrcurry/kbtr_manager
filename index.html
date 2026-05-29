@@ -80,7 +80,7 @@ body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#0d0802;color:#e
   --r:16px;--rs:11px;--rx:8px;
   --safe:env(safe-area-inset-bottom,0px);
 }
-#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto;position:relative}
 #hdr{flex-shrink:0;background:linear-gradient(135deg,var(--s1),var(--s2));border-bottom:1px solid var(--b1);padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:10}
 #hdr .logo{font-size:24px;line-height:1}
 #hdr .brand h1{font-family:'Zen Antique Soft',serif;font-size:14px;color:var(--gold);letter-spacing:.5px}
@@ -200,6 +200,42 @@ input[type=month]{padding:9px 12px;font-size:13px;width:auto}
 .empty{text-align:center;padding:52px 24px;color:var(--t3)}
 .empty-icon{font-size:40px;margin-bottom:12px}
 .empty p{font-size:13px;line-height:1.7}
+
+/* ── Responsive Layout ─────────────────────────── */
+/* iPhone 16 Pro: ~393px → スマホ単列レイアウト（デフォルト） */
+
+/* iPad mini 7: ~744px以上 → 2カラム */
+@media(min-width:600px){
+  #app{max-width:100%;flex-direction:row;flex-wrap:wrap}
+  #hdr{width:100%;order:0;padding:12px 24px}
+  #main{flex:1;order:2;min-width:0;height:calc(100dvh - 60px - var(--nav-h,64px))}
+  #nav{width:200px;order:1;flex-direction:column;height:calc(100dvh - 60px);border-top:none;border-right:1px solid var(--b1);padding-bottom:0}
+  .nb{flex-direction:row;justify-content:flex-start;gap:10px;padding:14px 20px;border-radius:0}
+  .nb.on::before{top:0;left:0;bottom:0;right:auto;width:3px;height:100%;border-radius:0 2px 2px 0}
+  .ni{font-size:18px}
+  .nl{font-size:13px;font-weight:600}
+  .sbody{padding:20px 24px 40px}
+  .metrics{grid-template-columns:1fr 1fr 1fr 1fr}
+  .r2{grid-template-columns:1fr 1fr}
+  .card{margin-bottom:12px}
+  .toast{left:220px}
+}
+
+/* Surface Pro 7: ~1368px → 広いコンテンツエリア */
+@media(min-width:1000px){
+  #hdr{padding:14px 32px}
+  #hdr .brand h1{font-size:17px}
+  #nav{width:240px}
+  .nb{padding:16px 24px;gap:12px}
+  .ni{font-size:20px}
+  .nl{font-size:14px}
+  .sbody{padding:24px 32px 40px;max-width:900px}
+  .metrics{grid-template-columns:repeat(6,1fr)}
+  .shdr{padding:16px 32px}
+  .shdr h2{font-size:17px}
+  #main{height:calc(100dvh - 64px)}
+  #nav{height:calc(100dvh - 64px)}
+}
 </style>
 </head>
 <body>
@@ -279,14 +315,14 @@ function srvCost(r){return r.servingsPerPot?potCost(r)/r.servingsPerPot:0;}
 // sales utils
 function rent(r){return r.rentType==='fixed'?r.rentAmount:r.totalSales*(r.rentAmount/100);}
 function netP(r){
-  const ids=r.recipeIds||(r.recipeId?[r.recipeId]:[]);
-  const cost=ids.reduce((s,rid)=>{const rec=DB.recipes.find(x=>x.id===rid);return s+(rec?srvCost(rec):0);},0);
-  return r.totalSales-cost*r.servingsSold-rent(r)-r.otherExpenses;
+  const entries=r.recipeEntries||(r.recipeIds||[]).map(id=>({id,servings:r.servingsSold||0}));
+  const cost=entries.reduce((s,e)=>{const rec=DB.recipes.find(x=>x.id===e.id);return s+(rec?srvCost(rec)*Number(e.servings||0):0);},0);
+  return r.totalSales-cost-rent(r)-r.otherExpenses;
 }
 function mSummary(ym){
   const rs=DB.sales.filter(r=>r.date.startsWith(ym));
   let ts=0,tc=0,tr=0,to=0,sv=0;
-  rs.forEach(r=>{ts+=r.totalSales;sv+=r.servingsSold;const ids=r.recipeIds||(r.recipeId?[r.recipeId]:[]);const cost=ids.reduce((s,rid)=>{const rec=DB.recipes.find(x=>x.id===rid);return s+(rec?srvCost(rec):0);},0);tc+=cost*r.servingsSold;tr+=rent(r);to+=r.otherExpenses;});
+  rs.forEach(r=>{ts+=r.totalSales;sv+=r.servingsSold;const entries=r.recipeEntries||(r.recipeIds||[]).map(id=>({id,servings:r.servingsSold||0}));const cost=entries.reduce((s,e)=>{const rec=DB.recipes.find(x=>x.id===e.id);return s+(rec?srvCost(rec)*Number(e.servings||0):0);},0);tc+=cost;tr+=rent(r);to+=r.otherExpenses;});
   return{ts,tc,tr,to,net:ts-tc-tr-to,cr:ts>0?(tc/ts)*100:0,sv,n:rs.length};
 }
 
@@ -334,7 +370,7 @@ function render(t){
 
 // ─── SCREEN 1: DASHBOARD ────────────────────────────────────
 let dYM=curYM(),dFO=false;
-let dF={date:today(),totalSales:'',servingsSold:'',recipeIds:[],rentType:'fixed',rentAmount:'5000',otherExpenses:''};
+let dF={date:today(),totalSales:'',recipeEntries:[],rentType:'fixed',rentAmount:'5000',otherExpenses:''};
 
 function rDash(){
   const sc=document.getElementById('s-dashboard');
@@ -353,24 +389,37 @@ function rDash(){
   </div>`:'';
 
   let pvH='';
-  if(dFO&&dF.totalSales&&dF.recipeIds.length&&dF.servingsSold){
-    const cost=dF.recipeIds.reduce((s,rid)=>{const r=DB.recipes.find(x=>x.id===rid);return s+(r?srvCost(r):0);},0);
+  if(dFO&&dF.totalSales&&dF.recipeEntries.length){
+    const totalSrv=dF.recipeEntries.reduce((s,e)=>s+Number(e.servings||0),0);
+    const cost=dF.recipeEntries.reduce((s,e)=>{const r=DB.recipes.find(x=>x.id===e.id);return s+(r?srvCost(r)*Number(e.servings||0):0);},0);
     const rn=dF.rentType==='fixed'?Number(dF.rentAmount):Number(dF.totalSales)*(Number(dF.rentAmount)/100);
-    const net=Number(dF.totalSales)-(cost*Number(dF.servingsSold))-rn-Number(dF.otherExpenses);
-    pvH=`<div class="prev"><div class="prow"><span class="plbl">純利益プレビュー</span><span class="pval ${net>=0?'tgrn':'tred'}">¥${f(net)}</span></div></div>`;
+    const net=Number(dF.totalSales)-cost-rn-Number(dF.otherExpenses);
+    pvH=`<div class="prev"><div class="prow"><span class="plbl">合計食数</span><span class="pval">${totalSrv}食</span></div><div class="prow"><span class="plbl">純利益プレビュー</span><span class="pval ${net>=0?'tgrn':'tred'}">¥${f(net)}</span></div></div>`;
   }
 
-  const ropts=DB.recipes.map(r=>`<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid ${dF.recipeIds.includes(r.id)?'var(--gold)':'var(--b1)'};border-radius:var(--rs);background:${dF.recipeIds.includes(r.id)?'rgba(212,136,15,.1)':'var(--s3)'};margin-bottom:6px;cursor:pointer"><input type="checkbox" ${dF.recipeIds.includes(r.id)?'checked':''} onchange="toggleRid('${r.id}')" style="width:auto;padding:0;accent-color:var(--gold)"><span style="flex:1;font-size:13px;color:var(--t1)">${r.name}</span><span class="tmut" style="font-size:11px">${r.servingsPerPot}食/鍋</span></label>`).join('');
+  const ropts=DB.recipes.map(r=>{
+    const entry=dF.recipeEntries.find(e=>e.id===r.id);
+    const checked=!!entry;
+    return`<div style="border:1px solid ${checked?'var(--gold)':'var(--b1)'};border-radius:var(--rs);background:${checked?'rgba(212,136,15,.08)':'var(--s3)'};margin-bottom:6px;overflow:hidden">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleRid('${r.id}')" style="width:auto;padding:0;accent-color:var(--gold)">
+        <span style="flex:1;font-size:13px;color:var(--t1)">${r.name}</span>
+        <span class="tmut" style="font-size:11px">${r.servingsPerPot}食/鍋</span>
+      </label>
+      ${checked?`<div style="padding:0 12px 10px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--t3)">販売食数：</span>
+        <input type="number" inputmode="decimal" placeholder="0" value="${entry.servings||''}" onchange="setServings('${r.id}',this.value)" style="width:80px;padding:6px 10px;font-size:14px;font-weight:700;text-align:center">
+        <span style="font-size:12px;color:var(--t3)">食</span>
+      </div>`:''}
+    </div>`;
+  }).join('');
 
   const frmH=dFO?`<div class="card mt3">
     <div class="stitle" style="margin-bottom:12px">📊 売上を記録する</div>
     <div class="field"><label>営業日</label><input type="date" value="${dF.date}" onchange="dF.date=this.value"></div>
     <div class="field"><label>使用レシピ（複数選択可）</label>
       ${ropts||'<div class="tmut" style="font-size:12px;padding:8px 0">レシピがまだ登録されていません</div>'}</div>
-    <div class="r2">
-      <div class="field"><label>総売上（円）</label><input type="number" inputmode="decimal" placeholder="0" value="${dF.totalSales}" onchange="dF.totalSales=this.value;rDash()"></div>
-      <div class="field"><label>販売食数（食）</label><input type="number" inputmode="decimal" placeholder="0" value="${dF.servingsSold}" onchange="dF.servingsSold=this.value;rDash()"></div>
-    </div>
+    <div class="field"><label>総売上（円）</label><input type="number" inputmode="decimal" placeholder="0" value="${dF.totalSales}" onchange="dF.totalSales=this.value;rDash()"></div>
     <div class="field"><label>家賃タイプ</label><div class="tg">
       <button class="tb${dF.rentType==='fixed'?' on':''}" onclick="dF.rentType='fixed';rDash()">固定額</button>
       <button class="tb${dF.rentType==='percentage'?' on':''}" onclick="dF.rentType='percentage';rDash()">売上の%</button>
@@ -384,8 +433,8 @@ function rDash(){
   </div>`:'';
 
   const recH=DB.sales.slice(0,12).map(r=>{
-  const net=netP(r);const ids=r.recipeIds||(r.recipeId?[r.recipeId]:[]);const recNames=ids.map(rid=>{const rec=DB.recipes.find(x=>x.id===rid);return rec?rec.name:'—';}).join(' + ')||'—';
-    return`<div class="csm fbb"><div><div class="fbold" style="font-size:13px">${r.date}</div><div class="tmut">${recNames} · ${r.servingsSold}食</div></div><div style="text-align:right"><div class="fbold tgold" style="font-size:13px">¥${f(r.totalSales)}</div><div style="font-size:11px;color:${net>=0?'var(--grn)':'var(--red)'}">利益 ¥${f(net)}</div></div></div>`;
+  const net=netP(r);const entries=r.recipeEntries||(r.recipeIds||[]).map(id=>({id,servings:0}));const recNames=entries.map(e=>{const rec=DB.recipes.find(x=>x.id===e.id);return rec?(e.servings?`${rec.name} ${e.servings}食`:rec.name):'—';}).join(' + ')||'—';
+    return`<div class="csm fbb"><div><div class="fbold" style="font-size:13px">${r.date}</div><div class="tmut">${recNames}</div></div><div style="text-align:right"><div class="fbold tgold" style="font-size:13px">¥${f(r.totalSales)}</div><div style="font-size:11px;color:${net>=0?'var(--grn)':'var(--red)'}">利益 ¥${f(net)}</div></div></div>`;
   }).join('');
 
   sc.innerHTML=`<div class="sbody">
@@ -412,11 +461,25 @@ function rDash(){
   </div>`;
 }
 
-function toggleRid(id){const i=dF.recipeIds.indexOf(id);if(i>=0)dF.recipeIds.splice(i,1);else dF.recipeIds.push(id);rDash();}
+function toggleRid(id){
+  const i=dF.recipeEntries.findIndex(e=>e.id===id);
+  if(i>=0)dF.recipeEntries.splice(i,1);
+  else dF.recipeEntries.push({id,servings:''});
+  rDash();
+}
+function setServings(id,val){
+  const e=dF.recipeEntries.find(x=>x.id===id);
+  if(e){e.servings=val;rDash();}
+}
+function setServings(id,val){
+  const e=dF.recipeEntries.find(x=>x.id===id);
+  if(e){e.servings=val;rDash();}
+}
 function saveSales(){
-  if(!dF.totalSales||!dF.servingsSold||!dF.recipeIds.length){toast('必須項目を入力してください','e');return;}
-  DB.sales.unshift({id:uid(),date:dF.date,totalSales:Number(dF.totalSales),servingsSold:Number(dF.servingsSold),recipeIds:[...dF.recipeIds],rentType:dF.rentType,rentAmount:Number(dF.rentAmount)||0,otherExpenses:Number(dF.otherExpenses)||0,createdAt:new Date().toISOString()});
-  save();dFO=false;dF={date:today(),totalSales:'',servingsSold:'',recipeIds:[],rentType:'fixed',rentAmount:'5000',otherExpenses:''};
+  if(!dF.totalSales||!dF.recipeEntries.length){toast('売上とレシピを入力してください','e');return;}
+  const totalSrv=dF.recipeEntries.reduce((s,e)=>s+Number(e.servings||0),0);
+  DB.sales.unshift({id:uid(),date:dF.date,totalSales:Number(dF.totalSales),servingsSold:totalSrv,recipeEntries:dF.recipeEntries.map(e=>({...e,servings:Number(e.servings||0)})),recipeIds:dF.recipeEntries.map(e=>e.id),rentType:dF.rentType,rentAmount:Number(dF.rentAmount)||0,otherExpenses:Number(dF.otherExpenses)||0,createdAt:new Date().toISOString()});
+  save();dFO=false;dF={date:today(),totalSales:'',recipeEntries:[],rentType:'fixed',rentAmount:'5000',otherExpenses:''};
   rDash();badge();toast('売上を記録しました ✓');
 }
 
