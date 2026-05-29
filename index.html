@@ -801,6 +801,44 @@ function saveI(){
 
 
 // ─── SCREEN 5: SETTINGS / IMPORT ────────────────────────────
+function rSettings(){
+  const sc=document.getElementById('s-settings');
+  const fbCfg=localStorage.getItem('fb_cfg');
+  const fbConnected=!!window._fbDb;
+  const fbSection=`<div class="stitle mb2">☁️ クラウド同期（Firebase）</div>
+    <div class="card ${fbConnected?'cgold':''}  mb2">
+      <div class="fbb mb2">
+        <div>
+          <div class="fbold" style="font-size:14px">${fbConnected?'✓ 同期中':'未接続'}</div>
+          <div class="tmut" style="font-size:12px">${fbConnected?'複数デバイスでリアルタイム同期しています':'Firebase設定を入力して同期を有効化'}</div>
+        </div>
+        ${fbConnected?'<span class="tag tg2">接続済み</span>':'<span class="tag ta">未設定</span>'}
+      </div>
+      ${!fbConnected?`
+      <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIza..." value="${fbCfg?JSON.parse(fbCfg).apiKey||'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI':'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI'}"></div>
+      <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="my-project-id" value="${fbCfg?JSON.parse(fbCfg).projectId||'kbtrmanager':'kbtrmanager'}"></div>
+      <div class="field"><label>Database URL</label><input type="text" id="fb-dbUrl" placeholder="https://xxx-default-rtdb.firebaseio.com" value="${fbCfg?JSON.parse(fbCfg).databaseURL||'https://kbtrmanager-default-rtdb.firebaseio.com':'https://kbtrmanager-default-rtdb.firebaseio.com'}"></div>
+      <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:xxx:web:xxx" value="${fbCfg?JSON.parse(fbCfg).appId||'1:577748339691:web:ac50fc038ebfe674f2e7ae':'1:577748339691:web:ac50fc038ebfe674f2e7ae'}"></div>
+      <button class="btn bp bfw" onclick="connectFirebase()" style="margin-top:4px">接続する</button>
+      <div id="fb-status" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
+      `:`<button class="btn bs bfw" onclick="disconnectFirebase()">同期を解除する</button>`}
+    </div>`;
+
+  sc.innerHTML='<div class="shdr"><h2>⚙️ 設定・インポート</h2></div><div class="sbody">'+fbSection+
+    '<div class="stitle mb2">📋 メモからレシピをインポート</div>'+
+    '<div class="tmut" style="margin-bottom:10px;line-height:1.7">メモを貼り付けて解析。<br><span style="color:var(--t3);font-size:11px">対応形式: 「食材名 数量g」「食材名:数量g」など</span></div>'+
+    '<textarea id="memo-input" placeholder="例:&#10;チキンビリヤニ 6食分&#10;鶏もも骨付き 700g&#10;玉ねぎ 240g&#10;クミンシード 2g" style="width:100%;height:160px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);padding:12px 14px;color:var(--t1);font-size:13px;font-family:inherit;resize:vertical;outline:none;line-height:1.6;margin-bottom:8px"></textarea>'+
+    '<div class="field mb2"><label>食数（メモに書いてあれば不要）</label><input type="number" inputmode="decimal" id="memo-servings" placeholder="例: 6" style="margin-bottom:0"></div>'+
+    '<button class="btn bp bfw" id="ai-import-btn" onclick="parseMemoImport()">🔍 解析してプレビュー</button>'+
+    '<div id="ai-result" style="margin-top:10px"></div>'+
+    '<div style="height:1px;background:var(--b1);margin:20px 0"></div>'+
+    '<div class="stitle mb2">データ管理</div>'+
+    '<button class="btn bs bfw" style="margin-bottom:10px" onclick="clearCacheAndReload()">🔄 キャッシュ消去して最新版に更新</button>'+
+    '<button class="btn bs bfw" style="margin-bottom:10px" onclick="exportData()">📤 データをエクスポート</button>'+
+    '<button class="btn" style="width:100%;padding:13px;border-radius:var(--rs);background:var(--rbg);border:1px solid var(--rb);color:#e74c3c;font-weight:700;font-family:inherit;font-size:14px" onclick="resetData()">🗑 全データをリセット</button>'+
+    '</div>';
+}
+
 function exportData(){
   const json=JSON.stringify(DB,null,2);
   const blob=new Blob([json],{type:'application/json'});
