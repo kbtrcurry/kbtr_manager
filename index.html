@@ -21,46 +21,58 @@ window._fbInit=async function(cfg){
     const app=existing||initializeApp(cfg,cfg.projectId);
     const db=getDatabase(app);
     window._fbDb=db;
-    const r=ref(db,'kobataro/data');
-    const snap=await get(r);
+    window._fbRef=ref(db,'kobataro/data');
+    // 保存関数をここで確定（import不要）
+    window._fbSave=async function(){
+      if(!window._fbRef)return;
+      try{
+        window._lastSaveTs=Date.now();
+        await set(window._fbRef,{...DB,_ts:window._lastSaveTs});
+      }catch(e){console.error('FB save error:',e);}
+    };
+    const snap=await get(window._fbRef);
     if(snap.exists()){
       const remote=snap.val();
-      if(!remote._ts||!window._localTs||remote._ts>=window._localTs){
-        window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},remote);
-        delete window.DB._ts;
+      const remoteTs=remote._ts||0;
+      const localTs=window._localTs||0;
+      if(remoteTs>=localTs){
+        // Firebaseのデータが新しい or 同じ → Firebaseを使う
+        const d=Object.assign({ingredients:[],recipes:[],sales:[]},remote);
+        delete d._ts;
+        DB=d;window.DB=DB;
+        try{localStorage.setItem('kobataro_v4',JSON.stringify(DB));}catch(e){}
         window._appProcessExp();
         window._appRender(window._curTab||'dashboard');
         window._appBadge();
+      } else {
+        // ローカルの方が新しい → ローカルをFirebaseにアップ
+        await window._fbSave();
       }
     } else {
-      await set(r,{...window.DB,_ts:Date.now()});
+      // Firebaseが空 → ローカルをアップロード
+      await window._fbSave();
     }
     if(window._fbUnsub)window._fbUnsub();
-    window._fbUnsub=onValue(r,s=>{
+    window._fbUnsub=onValue(window._fbRef,s=>{
       if(!s.exists())return;
       const d=s.val();
+      // 自分が書き込んだ更新は無視
       if(d._ts&&window._lastSaveTs&&d._ts<=window._lastSaveTs)return;
-      window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},d);
-      delete window.DB._ts;
+      const nd=Object.assign({ingredients:[],recipes:[],sales:[]},d);
+      delete nd._ts;
+      DB=nd;window.DB=DB;
+      try{localStorage.setItem('kobataro_v4',JSON.stringify(DB));}catch(e){}
       window._appProcessExp();
       window._appRender(window._curTab||'dashboard');
       window._appBadge();
     });
     localStorage.setItem('fb_cfg',JSON.stringify(cfg));
+    window._fbConnected=true;
     return true;
   }catch(e){
     console.error('Firebase init error:',e);
     return false;
   }
-};
-window._fbSave=async function(){
-  if(!window._fbDb)return;
-  try{
-    const{ref:r2,set:s2}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-    const r=r2(window._fbDb,'kobataro/data');
-    window._lastSaveTs=Date.now();
-    await s2(r,{...window.DB,_ts:window._lastSaveTs});
-  }catch(e){console.error('Realtime DB save error:',e);}
 };
 const _defaultCfg={apiKey:'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI',projectId:'kbtrmanager',appId:'1:577748339691:web:ac50fc038ebfe674f2e7ae',databaseURL:'https://kbtrmanager-default-rtdb.firebaseio.com',authDomain:'kbtrmanager.firebaseapp.com',storageBucket:'kbtrmanager.appspot.com',messagingSenderId:''};
 const saved=localStorage.getItem('fb_cfg');
@@ -275,12 +287,12 @@ window._localTs=0;
 window._appRender=function(t){render(t);};
 window._appBadge=function(){badge();};
 window._appProcessExp=function(){
-  // processExpをDBに直接適用（save()を呼ばない）
   let c=false;
   DB.ingredients=DB.ingredients.map(i=>{
     if(i.expiryDate&&new Date(i.expiryDate)<new Date()&&i.currentStock>0){c=true;return{...i,currentStock:0};}
     return i;
   });
+  window.DB=DB;
   if(c){try{localStorage.setItem('kobataro_v4',JSON.stringify(DB));}catch(e){}}
 };
 
@@ -289,9 +301,9 @@ function load(){
   processExp();
 }
 function save(){
-  try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){}
   window.DB=DB;
-  window._lastSaveTs=Date.now();
+  try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){}
+  window._localTs=Date.now();
   if(window._fbSave)window._fbSave();
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
@@ -434,16 +446,28 @@ function rDash(){
     <div class="brow"><button class="btn bs" onclick="dFO=false;rDash()">キャンセル</button><button class="btn bp" onclick="saveSales()">保存する</button></div>
   </div>`:'';
 
-  const recH=DB.sales.slice(0,12).map(r=>{
+  const recH=DB.sales.slice(0,30).map(r=>{
   const net=netP(r);const entries=r.recipeEntries||(r.recipeIds||[]).map(id=>({id,servings:0}));const recNames=entries.map(e=>{const rec=DB.recipes.find(x=>x.id===e.id);return rec?(e.servings?`${rec.name} ${e.servings}食`:rec.name):'—';}).join(' + ')||'—';
-    return`<div class="csm fbb"><div><div class="fbold" style="font-size:13px">${r.date}</div><div class="tmut">${recNames}</div></div><div style="text-align:right"><div class="fbold tgold" style="font-size:13px">¥${f(r.totalSales)}</div><div style="font-size:11px;color:${net>=0?'var(--grn)':'var(--red)'}">利益 ¥${f(net)}</div></div></div>`;
+    return`<div class="csm" style="cursor:pointer" onclick="showSaleDetail('${r.id}')">
+      <div class="fbb mb2">
+        <div><div class="fbold" style="font-size:13px">${r.date}</div><div class="tmut" style="font-size:11px">${recNames}</div></div>
+        <div style="text-align:right">
+          <div class="fbold tgold" style="font-size:13px">¥${f(r.totalSales)}</div>
+          <div style="font-size:11px;color:${net>=0?'var(--grn)':'var(--red)'}">利益 ¥${f(net)}</div>
+        </div>
+      </div>
+      <div class="fb g2" style="justify-content:flex-end">
+        <button class="btn bsm" style="padding:4px 12px;font-size:11px;border:1px solid var(--b2);background:var(--s4);color:var(--t2)" onclick="event.stopPropagation();editSale('${r.id}')">編集</button>
+        <button class="btn bsm" style="padding:4px 12px;font-size:11px;border:1px solid var(--rb);background:var(--rbg);color:#e74c3c" onclick="event.stopPropagation();deleteSale('${r.id}')">削除</button>
+      </div>
+    </div>`;
   }).join('');
 
   sc.innerHTML=`<div class="sbody">
     ${alH}
     <div class="fbb mb2">
       <input type="month" value="${dYM}" onchange="dYM=this.value;rDash()">
-      <button class="btn bp bsm" style="width:auto;margin-left:10px" onclick="dFO=!dFO;rDash()">${dFO?'✕ 閉じる':'+ 売上入力'}</button>
+      <button class="btn bp bsm" style="width:auto;margin-left:10px" onclick="dFO=!dFO;if(!dFO){window._editSaleId=null;}rDash()">${dFO?(window._editSaleId?'✕ 編集キャンセル':'✕ 閉じる'):'+ 売上入力'}</button>
     </div>
     <div class="metrics">
       <div class="met"><div class="mlbl">総売上</div><div class="mval gold">¥${f(m.ts)}</div></div>
@@ -463,6 +487,52 @@ function rDash(){
   </div>`;
 }
 
+// 売上詳細モーダル
+function showSaleDetail(id){
+  const r=DB.sales.find(x=>x.id===id);if(!r)return;
+  const entries=r.recipeEntries||(r.recipeIds||[]).map(rid=>({id:rid,servings:0}));
+  const recRows=entries.map(e=>{const rec=DB.recipes.find(x=>x.id===e.id);return`<div class="prow"><span class="plbl">${rec?rec.name:'不明'}</span><span class="pval">${e.servings||0}食</span></div>`;}).join('');
+  const rentAmt=r.rentType==='fixed'?r.rentAmount:Math.round(r.totalSales*(r.rentAmount/100));
+  const cost=netP(r)-(r.totalSales-r.otherExpenses-rentAmt-(r.totalSales-netP(r)-r.otherExpenses-rentAmt));
+  const totalCost=r.totalSales-netP(r)-r.otherExpenses-rentAmt;
+  const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:flex-end;justify-content:center" onclick="this.remove()">
+    <div style="background:var(--s1);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div class="fbb mb2"><div class="fbold" style="font-size:16px">📊 ${r.date} の売上詳細</div><button class="bbk" onclick="this.closest('[style*=fixed]').remove()">✕</button></div>
+      <div class="prev">
+        ${recRows}
+        <div class="prow"><span class="plbl">総売上</span><span class="pval tgold">¥${f(r.totalSales)}</span></div>
+        <div class="prow"><span class="plbl">原価合計</span><span class="pval">¥${f(totalCost)}</span></div>
+        <div class="prow"><span class="plbl">家賃（${r.rentType==='fixed'?'固定':'売上%'}）</span><span class="pval">¥${f(rentAmt)}</span></div>
+        ${r.otherExpenses>0?`<div class="prow"><span class="plbl">その他経費</span><span class="pval">¥${f(r.otherExpenses)}</span></div>`:''}
+        <div class="prow" style="border-top:1px solid var(--b1);margin-top:8px;padding-top:10px"><span class="plbl fbold">純利益</span><span class="pval fbold" style="font-size:18px;color:${netP(r)>=0?'var(--grn)':'var(--red)'}">¥${f(netP(r))}</span></div>
+      </div>
+      <div class="brow mt3">
+        <button class="btn bs" onclick="this.closest('[style*=fixed]').remove();editSale('${r.id}')">編集</button>
+        <button class="btn bor" onclick="this.closest('[style*=fixed]').remove();deleteSale('${r.id}')">削除</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function editSale(id){
+  const r=DB.sales.find(x=>x.id===id);if(!r)return;
+  dF={
+    date:r.date,totalSales:String(r.totalSales),
+    recipeEntries:(r.recipeEntries||(r.recipeIds||[]).map(rid=>({id:rid,servings:r.servingsSold||0}))).map(e=>({...e,servings:String(e.servings)})),
+    rentType:r.rentType,rentAmount:String(r.rentAmount),otherExpenses:String(r.otherExpenses||0)
+  };
+  dFO=true;window._editSaleId=id;rDash();
+  // スクロールしてフォームへ
+  setTimeout(()=>document.querySelector('.card.mt3')?.scrollIntoView({behavior:'smooth'}),100);
+}
+
+function deleteSale(id){
+  if(!confirm('この売上記録を削除しますか？'))return;
+  DB.sales=DB.sales.filter(x=>x.id!==id);
+  save();rDash();badge();toast('削除しました');
+}
+
 function toggleRid(id){
   const i=dF.recipeEntries.findIndex(e=>e.id===id);
   if(i>=0)dF.recipeEntries.splice(i,1);
@@ -480,7 +550,9 @@ function setServings(id,val){
 function saveSales(){
   if(!dF.totalSales||!dF.recipeEntries.length){toast('売上とレシピを入力してください','e');return;}
   const totalSrv=dF.recipeEntries.reduce((s,e)=>s+Number(e.servings||0),0);
-  DB.sales.unshift({id:uid(),date:dF.date,totalSales:Number(dF.totalSales),servingsSold:totalSrv,recipeEntries:dF.recipeEntries.map(e=>({...e,servings:Number(e.servings||0)})),recipeIds:dF.recipeEntries.map(e=>e.id),rentType:dF.rentType,rentAmount:Number(dF.rentAmount)||0,otherExpenses:Number(dF.otherExpenses)||0,createdAt:new Date().toISOString()});
+  const rec={id:window._editSaleId||uid(),date:dF.date,totalSales:Number(dF.totalSales),servingsSold:totalSrv,recipeEntries:dF.recipeEntries.map(e=>({...e,servings:Number(e.servings||0)})),recipeIds:dF.recipeEntries.map(e=>e.id),rentType:dF.rentType,rentAmount:Number(dF.rentAmount)||0,otherExpenses:Number(dF.otherExpenses)||0,createdAt:new Date().toISOString()};
+  if(window._editSaleId){DB.sales=DB.sales.map(x=>x.id===window._editSaleId?rec:x);window._editSaleId=null;toast('売上を更新しました ✓');}
+  else{DB.sales.unshift(rec);toast('売上を記録しました ✓');}
   save();dFO=false;dF={date:today(),totalSales:'',recipeEntries:[],rentType:'fixed',rentAmount:'5000',otherExpenses:''};
   rDash();badge();toast('売上を記録しました ✓');
 }
@@ -825,15 +897,15 @@ function importPreset(idx){
 }
 
 async function clearCacheAndReload(){
+  // ★localStorageのデータは消さない（Firebase同期のため保持）
   try{
     const regs=await navigator.serviceWorker.getRegistrations();
     for(const r of regs)await r.unregister();
     const keys=await caches.keys();
     for(const k of keys)await caches.delete(k);
-    toast('キャッシュを消去しました。再読み込みします… ✓');
-    setTimeout(()=>location.reload(true),1500);
+    toast('アプリを最新版に更新します ✓');
+    setTimeout(()=>location.reload(true),1200);
   }catch(e){
-    toast('再読み込みします…');
     setTimeout(()=>location.reload(true),800);
   }
 }
