@@ -62,8 +62,10 @@ window._fbSave=async function(){
     await s2(r,{...window.DB,_ts:window._lastSaveTs});
   }catch(e){console.error('Realtime DB save error:',e);}
 };
+const _defaultCfg={apiKey:'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI',projectId:'kbtrmanager',appId:'1:577748339691:web:ac50fc038ebfe674f2e7ae',databaseURL:'https://kbtrmanager-default-rtdb.firebaseio.com',authDomain:'kbtrmanager.firebaseapp.com',storageBucket:'kbtrmanager.appspot.com',messagingSenderId:''};
 const saved=localStorage.getItem('fb_cfg');
-if(saved){try{window._fbInit(JSON.parse(saved));}catch(e){}}
+if(saved){try{window._fbInit(JSON.parse(saved));}catch(e){window._fbInit(_defaultCfg);}}
+else{window._fbInit(_defaultCfg);}
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -743,10 +745,10 @@ function rSettings(){
         ${fbConnected?'<span class="tag tg2">接続済み</span>':'<span class="tag ta">未設定</span>'}
       </div>
       ${!fbConnected?`
-      <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIza..." value="${fbCfg?JSON.parse(fbCfg).apiKey||'':''}"></div>
-      <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="my-project-id" value="${fbCfg?JSON.parse(fbCfg).projectId||'':''}"></div>
-      <div class="field"><label>Database URL</label><input type="text" id="fb-dbUrl" placeholder="https://xxx-default-rtdb.firebaseio.com" value="${fbCfg?JSON.parse(fbCfg).databaseURL||'':''}"></div>
-      <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:xxx:web:xxx" value="${fbCfg?JSON.parse(fbCfg).appId||'':''}"></div>
+      <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIza..." value="${fbCfg?JSON.parse(fbCfg).apiKey||'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI':'AIzaSyCwWx7ZOe_nE2azPSG33Rw6hT06P8cPghI'}"></div>
+      <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="my-project-id" value="${fbCfg?JSON.parse(fbCfg).projectId||'kbtrmanager':'kbtrmanager'}"></div>
+      <div class="field"><label>Database URL</label><input type="text" id="fb-dbUrl" placeholder="https://xxx-default-rtdb.firebaseio.com" value="${fbCfg?JSON.parse(fbCfg).databaseURL||'https://kbtrmanager-default-rtdb.firebaseio.com':'https://kbtrmanager-default-rtdb.firebaseio.com'}"></div>
+      <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:xxx:web:xxx" value="${fbCfg?JSON.parse(fbCfg).appId||'1:577748339691:web:ac50fc038ebfe674f2e7ae':'1:577748339691:web:ac50fc038ebfe674f2e7ae'}"></div>
       <button class="btn bp bfw" onclick="connectFirebase()" style="margin-top:4px">接続する</button>
       <div id="fb-status" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
       `:`<button class="btn bs bfw" onclick="disconnectFirebase()">同期を解除する</button>`}
