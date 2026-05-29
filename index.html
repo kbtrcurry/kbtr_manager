@@ -255,7 +255,7 @@ input[type=month]{padding:9px 12px;font-size:13px;width:auto}
 <body>
 <div id="app">
   <header id="hdr">
-    <div class="logo">🍛</div>
+    <button class="logo" onclick="clearCacheAndReload()" title="タップで最新版に更新" style="background:none;border:none;cursor:pointer;padding:0;font-size:24px;line-height:1;-webkit-tap-highlight-color:transparent">🍛</button>
     <div class="brand"><h1>コバタロカレー</h1><p>店舗管理システム</p></div>
     <div id="halert">⚠ <span id="acnt">0</span>件</div>
   </header>
@@ -390,8 +390,10 @@ function rDash(){
   const sc=document.getElementById('s-dashboard');
   const al=getAlerts();
   const m=mSummary(dYM);
-  const l7=[];
-  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);const rs=DB.sales.filter(r=>r.date===ds);l7.push({dt:ds.slice(5),s:rs.reduce((a,r)=>a+r.totalSales,0)});}
+  // 過去8回の営業日（売上のある日）を取得
+  const allDates=[...new Set(DB.sales.map(r=>r.date))].sort();
+  const last8dates=allDates.slice(-8);
+  const l7=last8dates.map(ds=>{const rs=DB.sales.filter(r=>r.date===ds);return{dt:ds.slice(5),s:rs.reduce((a,r)=>a+r.totalSales,0)};});
   const mx=Math.max(...l7.map(d=>d.s),1);
 
   const alH=al.length>0?`<div class="abanner">
@@ -478,7 +480,7 @@ function rDash(){
       <div class="met"><div class="mlbl">販売食数</div><div class="mval sm">${f(m.sv)}<span class="u">食</span></div></div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <div class="stitle">直近7日の売上</div>
+      <div class="stitle">過去8回の売上</div>
       <div class="bchart">${l7.map(d=>`<div class="bcol"><div class="bfill" style="height:${Math.max(2,(d.s/mx)*60)}px"></div><div class="bdate">${d.dt}</div></div>`).join('')}</div>
     </div>
     ${frmH}
@@ -558,17 +560,18 @@ function saveSales(){
 }
 
 // ─── SCREEN 2: RECIPE ───────────────────────────────────────
-let rV='list',rEd=null,rF={name:'',servings:'',price:'',ingredients:[]},rPO=false;
+let rV='list',rEd=null,rF={name:'',servings:'',price:'',ingredients:[]},rPO=false,rSrch='';
 
 function rRec(){if(rV==='edit'){rRecEdit();return;}
-  const items=DB.recipes.map(r=>{
+  const filtered=rSrch?DB.recipes.filter(r=>r.name.includes(rSrch)):DB.recipes;
+  const items=filtered.map(r=>{
     const cp=potCost(r),cs=srvCost(r),sp=r.sellingPrice||0,cr=sp>0?Math.round(cs/sp*100):null;
     const ings=r.ingredients.map(ri=>{const i=DB.ingredients.find(x=>x.id===ri.ingredientId);return i?`<span class="tag tgr">${i.name} ${ri.amountPerPot}g</span>`:''}).join('');
     return`<div class="card"><div class="fbb" style="margin-bottom:12px"><div><div class="fbold" style="font-size:15px">${r.name}</div><div class="tmut">${r.servingsPerPot}食/鍋 · ${r.ingredients.length}種類</div></div><div class="fb g2"><button class="btn bog bsm" onclick="startER('${r.id}')">編集</button><button class="btn bor bsm" onclick="delR('${r.id}')">削除</button></div></div>
     <div class="r2" style="margin-bottom:${ings?'10px':'0'}"><div class="met"><div class="mlbl">1食あたり原価</div><div class="mval sm">¥${ff(cs)}</div></div><div class="met ${cr!=null?(cr>35?'':'cgold'):''}"><div class="mlbl">販売価格${sp?(cr!=null?' / 原価率':''):'（未設定）'}</div><div class="mval ${cr!=null?(cr>35?'red':'gold'):''} sm">${sp?`¥${f(sp)}${cr!=null?` <span style="font-size:11px;font-weight:400">(${cr}%)</span>`:''}`:'-'}</div></div></div>
     ${ings?`<div class="tags" style="flex-wrap:wrap;gap:4px">${ings}</div>`:''}</div>`;
   }).join('');
-  document.getElementById('s-recipe').innerHTML=`<div class="shdr"><h2>レシピ一覧</h2><button class="btn bp bsm" style="width:auto" onclick="startNR()">+ 新規</button></div><div class="sbody">${items||'<div class="empty"><div class="empty-icon">📝</div><p>レシピがまだ登録されていません</p></div>'}</div>`;
+  document.getElementById('s-recipe').innerHTML=`<div class="shdr"><h2>レシピ一覧</h2><button class="btn bp bsm" style="width:auto" onclick="startNR()">+ 新規</button></div><div class="sbody"><div class="field"><input type="search" placeholder="🔍 レシピ名で検索..." value="${rSrch}" oninput="rSrch=this.value;rRec()" style="margin-bottom:0"></div>${items||`<div class="empty"><div class="empty-icon">📝</div><p>${DB.recipes.length===0?'レシピがまだ登録されていません':'条件に合うレシピがありません'}</p></div>`}</div>`;
 }
 
 function startNR(){rEd=null;rF={name:'',servings:'',ingredients:[]};rPO=false;rV='edit';rRec();}
@@ -611,51 +614,99 @@ function saveR(){
 }
 
 // ─── SCREEN 3: COOKING ──────────────────────────────────────
-let cSt={rid:'',pots:'',done:false,warns:[]};
+let cSt={entries:[],done:false,warns:[]};  // entries:[{rid,pots}]
 
 function rCook(){
   if(cSt.done){rCookDone();return;}
-  const r=DB.recipes.find(x=>x.id===cSt.rid);
-  const pv=r&&cSt.pots?buildPv(r):[];
+  const rbH=DB.recipes.map(rec=>{
+    const entry=cSt.entries.find(e=>e.rid===rec.id);
+    const checked=!!entry;
+    return`<div style="border:1px solid ${checked?'var(--gold)':'var(--b1)'};border-radius:var(--rs);background:${checked?'rgba(212,136,15,.08)':'var(--s3)'};margin-bottom:6px;overflow:hidden">
+      <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleCookRec('${rec.id}')" style="width:auto;padding:0;accent-color:var(--gold)">
+        <span style="flex:1;font-size:13px;color:var(--t1)">${rec.name}</span>
+        <span class="tag ${checked?'ta':'tgr'}">${rec.servingsPerPot}食/鍋</span>
+      </label>
+      ${checked?`<div style="padding:0 12px 10px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--t3)">鍋数：</span>
+        <button class="sbtn" style="width:36px;height:36px;font-size:20px;border-radius:8px" onclick="event.preventDefault();setCookPots('${rec.id}',Math.max(0.5,(Number(entry.pots)||1)-0.5))">−</button>
+        <input type="number" inputmode="decimal" placeholder="1" value="${entry.pots||''}" onchange="setCookPots('${rec.id}',this.value)" style="width:70px;padding:6px;font-size:16px;font-weight:700;text-align:center">
+        <button class="sbtn" style="width:36px;height:36px;font-size:20px;border-radius:8px" onclick="event.preventDefault();setCookPots('${rec.id}',(Number(entry.pots)||0)+0.5)">+</button>
+        <span style="font-size:12px;color:var(--t3)">${entry.pots?`= ${Math.round(Number(entry.pots)*rec.servingsPerPot)}食`:''}</span>
+      </div>`:''}
+    </div>`;
+  }).join('');
+  // 全エントリーの食材チェック
+  const allPv=cSt.entries.flatMap(e=>{const r=DB.recipes.find(x=>x.id===e.rid);return r&&e.pots?buildPvMulti(r,e.pots):[];});
+  const pvMap={};allPv.forEach(p=>{if(!pvMap[p.id]){pvMap[p.id]={...p};}else{pvMap[p.id].nd+=p.nd;pvMap[p.id].rm-=p.addNd;pvMap[p.id].ins=pvMap[p.id].rm<0;}});
+  const pv=Object.values(pvMap);
   const hasI=pv.some(p=>p.ins);const hasE=pv.some(p=>p.ew);
-  const rbH=DB.recipes.map(rec=>`<button class="ropt${cSt.rid===rec.id?' on':''}" onclick="cSt.rid='${rec.id}';cSt.pots='';rCook()"><span>${rec.name}</span><span class="tag ${cSt.rid===rec.id?'ta':'tgr'}">${rec.servingsPerPot}食/鍋</span></button>`).join('');
   const icH=pv.map(p=>`<div class="icrow${p.ins?' danger':p.wl||p.ew?' warn':''}"><div class="fbb mb2"><div class="fb g2"><span class="fbold" style="font-size:13px">${p.nm}</span>${p.ew?`<span class="tag ta">期限${p.dl}日</span>`:''}</div>${p.ins?'<span class="fbold tred" style="font-size:12px">在庫不足!</span>':`<span class="tmut">必要: ${p.nd.toFixed(0)}g</span>`}</div><div class="fb g2" style="align-items:center"><div class="pw" style="flex:1"><div class="pb ${p.ins?'pred':p.wl?'pamb':'pgrn'}" style="width:${Math.min(100,Math.max(0,p.pct))}%"></div></div><span style="font-size:11px;font-weight:700;min-width:52px;text-align:right;color:${p.ins?'var(--red)':p.wl?'var(--amb)':'var(--t2)'}">残${p.rm.toFixed(0)}g</span></div></div>`).join('');
+  const totalFood=cSt.entries.reduce((s,e)=>{const r=DB.recipes.find(x=>x.id===e.rid);return s+(r?Math.round(Number(e.pots||0)*r.servingsPerPot):0);},0);
   document.getElementById('s-cooking').innerHTML=`<div class="shdr"><h2>🫕 今日の仕込み</h2></div><div class="sbody">
-    <div class="field"><div class="stitle mb2">仕込むレシピ</div>${rbH||'<p class="tmut">レシピが登録されていません</p>'}</div>
-    ${r?`<div class="field"><div class="stitle mb2">仕込み鍋数</div><div class="stepper"><button class="sbtn" onclick="cSt.pots=String(Math.max(1,(Number(cSt.pots)||0)-1));rCook()">−</button><input type="number" inputmode="decimal" placeholder="0" value="${cSt.pots}" onchange="cSt.pots=this.value;rCook()"><button class="sbtn" onclick="cSt.pots=String((Number(cSt.pots)||0)+1);rCook()">+</button></div>${cSt.pots?`<div class="tmut" style="text-align:center;margin-top:6px">= ${Number(cSt.pots)*r.servingsPerPot}食分</div>`:''}</div>
-    ${pv.length>0?`<div class="stitle mb2">使用食材チェック</div>${hasE?`<div class="card cwarn mb2" style="padding:10px 12px"><div class="fb g2"><span class="tamb">⚠</span><p style="font-size:12px;color:#e8950d">期限が近い材料が含まれています。使用前に状態を確認してください。</p></div></div>`:''}<br>${icH}<button class="btn bp mt3" style="font-size:15px;padding:15px" ${hasI?'disabled':''} onclick="confCook()">🫕 仕込みを確定する</button>`:''}`:''}
+    <div class="field"><div class="stitle mb2">仕込むレシピ（複数選択可）</div>${rbH||'<p class="tmut">レシピが登録されていません</p>'}</div>
+    ${cSt.entries.length>0&&totalFood>0?`<div class="card cgold mb2"><div class="fbb"><span class="tsm fbold">合計仕込み食数</span><span class="fbold tgold" style="font-size:20px">${totalFood}食</span></div></div>`:''}
+    ${pv.length>0?`<div class="stitle mb2">使用食材チェック</div>${hasE?`<div class="card cwarn mb2" style="padding:10px 12px"><div class="fb g2"><span class="tamb">⚠</span><p style="font-size:12px;color:#e8950d">期限が近い材料があります。確認してください。</p></div></div>`:''}<br>${icH}<button class="btn bp mt3" style="font-size:15px;padding:15px" ${hasI?'disabled':''} onclick="confCook()">🫕 仕込みを確定する</button>`:''}
   </div>`;
 }
 
+function toggleCookRec(rid){
+  const i=cSt.entries.findIndex(e=>e.rid===rid);
+  if(i>=0)cSt.entries.splice(i,1);
+  else cSt.entries.push({rid,pots:'1'});
+  rCook();
+}
+function setCookPots(rid,val){
+  const e=cSt.entries.find(x=>x.rid===rid);
+  if(e){e.pots=String(Math.max(0,parseFloat(val)||0));rCook();}
+}
+
 function buildPv(recipe){
+  // 後方互換（単一レシピ用）
+  return buildPvMulti(recipe, cSt.entries.find(e=>e.rid===recipe.id)?.pots||1);
+}
+function buildPvMulti(recipe,pots){
   return recipe.ingredients.map(ri=>{
     const i=DB.ingredients.find(x=>x.id===ri.ingredientId);if(!i)return null;
-    const nd=ri.amountPerPot*Number(cSt.pots);const rm=i.currentStock-nd;
+    const nd=ri.amountPerPot*Number(pots);const addNd=nd;const rm=i.currentStock-nd;
     const pct=i.initialStock>0?(rm/i.initialStock)*100:100;
-    return{nm:i.name,id:i.id,nd,rm:Math.max(0,rm),pct,ins:rm<0,wl:rm>=0&&pct<20,ew:isWarnI(i),dl:i.expiryDate?daysLeft(i.expiryDate):null};
+    return{nm:i.name,id:i.id,nd,addNd,rm:Math.max(0,rm),pct,ins:rm<0,wl:rm>=0&&pct<20,ew:isWarnI(i),dl:i.expiryDate?daysLeft(i.expiryDate):null};
   }).filter(Boolean);
 }
 
 function confCook(){
-  const r=DB.recipes.find(x=>x.id===cSt.rid);
-  if(!r||!cSt.pots){toast('レシピと鍋数を入力してください','e');return;}
-  const pv=buildPv(r);if(pv.some(p=>p.ins)){toast('在庫不足の食材があります','e');return;}
-  const ws=[];pv.forEach(p=>{if(p.wl)ws.push({nm:p.nm,is:'仕込み後20%未満'});if(p.ew)ws.push({nm:p.nm,is:`期限あと${p.dl}日`});});
-  DB.ingredients=DB.ingredients.map(i=>{const ri=r.ingredients.find(x=>x.ingredientId===i.id);if(!ri)return i;return{...i,currentStock:Math.max(0,i.currentStock-ri.amountPerPot*Number(cSt.pots))};});
+  if(!cSt.entries.length){toast('レシピを選択してください','e');return;}
+  const allPv=cSt.entries.flatMap(e=>{const r=DB.recipes.find(x=>x.id===e.rid);return r&&e.pots?buildPvMulti(r,e.pots):[];});
+  const pvMap={};allPv.forEach(p=>{if(!pvMap[p.id]){pvMap[p.id]={...p,totalNd:p.nd};}else{pvMap[p.id].totalNd+=p.nd;pvMap[p.id].rm=DB.ingredients.find(x=>x.id===p.id)?.currentStock-pvMap[p.id].totalNd;}});
+  if(Object.values(pvMap).some(p=>p.rm<0)){toast('在庫不足の食材があります','e');return;}
+  const ws=[];
+  // 在庫を一括減算
+  DB.ingredients=DB.ingredients.map(ing=>{
+    let totalUse=0;
+    cSt.entries.forEach(e=>{const r=DB.recipes.find(x=>x.id===e.rid);if(!r)return;const ri=r.ingredients.find(x=>x.ingredientId===ing.id);if(ri)totalUse+=ri.amountPerPot*Number(e.pots||0);});
+    if(totalUse===0)return ing;
+    const newStock=Math.max(0,ing.currentStock-totalUse);
+    const pct=ing.initialStock>0?(newStock/ing.initialStock)*100:100;
+    if(pct<20)ws.push({nm:ing.name,is:'仕込み後20%未満'});
+    if(isWarnI(ing))ws.push({nm:ing.name,is:`期限あと${daysLeft(ing.expiryDate)}日`});
+    return{...ing,currentStock:newStock};
+  });
   save();cSt.done=true;cSt.warns=ws;rCook();badge();
   if(ws.length>0)toast(`仕込み完了！ ${ws.length}件の注意あり`,'w');else toast('仕込みを確定しました ✓');
 }
 
 function rCookDone(){
-  const r=DB.recipes.find(x=>x.id===cSt.rid);
-  document.getElementById('s-cooking').innerHTML=`<div class="cscr"><div class="ccirc">✓</div><div class="fbold tgrn" style="font-size:22px;margin-bottom:6px">仕込み完了！</div><div class="tsm">${r?.name||''} ${cSt.pots}鍋分の仕込みを確定しました</div>
+  const names=cSt.entries.map(e=>{const r=DB.recipes.find(x=>x.id===e.rid);return r?`${r.name} ${e.pots}鍋`:''}).filter(Boolean).join('、');
+  const totalFood=cSt.entries.reduce((s,e)=>{const r=DB.recipes.find(x=>x.id===e.rid);return s+(r?Math.round(Number(e.pots||0)*r.servingsPerPot):0);},0);
+  document.getElementById('s-cooking').innerHTML=`<div class="cscr"><div class="ccirc">✓</div><div class="fbold tgrn" style="font-size:22px;margin-bottom:6px">仕込み完了！</div><div class="tsm">${names} (合計${totalFood}食分)</div>
   ${cSt.warns.length>0?`<div class="card cwarn mt4" style="text-align:left"><div class="stitle tamb mb2">⚠ 注意事項</div>${cSt.warns.map(w=>`<div class="fb g2 mt2"><span class="tamb" style="font-size:12px">●</span><span class="tsm"><strong>${w.nm}</strong>：${w.is}</span></div>`).join('')}</div>`:''}
-  <button class="btn bs bfw mt4" onclick="cSt={rid:'',pots:'',done:false,warns:[]};rCook()">新しい仕込みを開始</button></div>`;
+  <button class="btn bs bfw mt4" onclick="cSt={entries:[],done:false,warns:[]};rCook()">新しい仕込みを開始</button></div>`;
 }
 
 // ─── SCREEN 4: INVENTORY ────────────────────────────────────
-let iV='list',iEd=null,iFlt='all',iSrch='';
-let iF={name:'',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};
+let iV='list',iEd=null,iFlt='all',iSrch='',iCat='all';
+const ICATS=['食材','調味料','スパイス'];
+let iF={name:'',category:'食材',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};
 
 function rInv(){
   if(iV==='edit'){rIngEdit();return;}
@@ -663,22 +714,47 @@ function rInv(){
   if(iSrch)items=items.filter(i=>i.name.includes(iSrch));
   if(iFlt==='low')items=items.filter(i=>isLow(i));
   if(iFlt==='expiry')items=items.filter(i=>isWarnI(i));
-  const lstH=items.map(i=>{
+
+  const makeCard=i=>{
     const u=up(i);const pct=i.initialStock>0?(i.currentStock/i.initialStock)*100:0;
     const low=isLow(i),ew=isWarnI(i),exp=isExpI(i);const dl=i.expiryDate?daysLeft(i.expiryDate):null;
-    return`<div class="card${low||ew?' cwarn':''}"><div class="fbb mb2"><div style="flex:1;min-width:0"><div class="fb g2" style="flex-wrap:wrap;align-items:center"><span class="fbold" style="font-size:14px">${i.name}</span>${low?'<span class="tag tr">在庫少</span>':''}${ew&&!exp?`<span class="tag ta">あと${dl}日</span>`:''}${exp?'<span class="tag tr">期限切れ</span>':''}</div><div class="tmut mt2">単価: ¥${ff(u,2)}/g${i.expiryDate&&!exp&&dl!==null&&dl>3?` · 期限: ${i.expiryDate}`:''}</div></div><div class="fb g2" style="margin-left:10px;flex-shrink:0"><button class="btn bog bsm" onclick="startEI('${i.id}')">編集</button><button class="btn bor bsm" onclick="delI('${i.id}')">削除</button></div></div>
+    const catEmoji={食材:'🥩',調味料:'🫙',スパイス:'🌿'}[i.category||'食材']||'📦';
+    return`<div class="card${low||ew?' cwarn':''}"><div class="fbb mb2"><div style="flex:1;min-width:0"><div class="fb g2" style="flex-wrap:wrap;align-items:center"><span class="fbold" style="font-size:14px">${i.name}</span><span class="tag tgr" style="font-size:10px">${catEmoji} ${i.category||'食材'}</span>${low?'<span class="tag tr">在庫少</span>':''}${ew&&!exp?`<span class="tag ta">あと${dl}日</span>`:''}${exp?'<span class="tag tr">期限切れ</span>':''}</div><div class="tmut mt2">単価: ¥${ff(u,2)}/g（税込）${i.expiryDate&&!exp&&dl!==null&&dl>3?` · 期限: ${i.expiryDate}`:''}</div></div><div class="fb g2" style="margin-left:10px;flex-shrink:0"><button class="btn bog bsm" onclick="startEI('${i.id}')">編集</button><button class="btn bor bsm" onclick="delI('${i.id}')">削除</button></div></div>
     <div class="fbb mb2"><span class="tmut">${i.currentStock.toFixed(0)}g / ${i.initialStock}g</span><span class="fbold" style="font-size:11px;color:${low?'var(--red)':'var(--t3)'}">${pct.toFixed(0)}%</span></div>
     <div class="pw"><div class="pb ${low?'pred':pct<50?'pamb':'pgrn'}" style="width:${Math.min(100,pct)}%"></div></div></div>`;
-  }).join('');
+  };
+
+  // カテゴリ別グループ化（カテゴリフィルタが'all'の場合のみグループ表示）
+  let lstH='';
+  if(iCat==='all'&&!iSrch&&iFlt==='all'){
+    const cats=['食材','調味料','スパイス','未分類'];
+    cats.forEach(cat=>{
+      const catItems=items.filter(i=>(i.category||'食材')===(cat==='未分類'?undefined:cat)||(cat==='未分類'&&!ICATS.includes(i.category)));
+      if(catItems.length===0)return;
+      const emoji={食材:'🥩',調味料:'🫙',スパイス:'🌿',未分類:'📦'}[cat]||'📦';
+      lstH+=`<div class="stitle mt3 mb2">${emoji} ${cat} <span style="font-weight:400;color:var(--t3)">${catItems.length}種</span></div>`;
+      lstH+=catItems.map(makeCard).join('');
+    });
+  } else {
+    const filtered=iCat==='all'?items:items.filter(i=>(i.category||'食材')===iCat);
+    lstH=filtered.map(makeCard).join('');
+  }
+
+  const catTabs=`<div class="tg mb2" style="flex-wrap:wrap">
+    <button class="tb${iCat==='all'?' on':''}" onclick="iCat='all';rInv()">全カテゴリ</button>
+    ${ICATS.map(c=>`<button class="tb${iCat===c?' on':''}" onclick="iCat='${c}';rInv()">${c}</button>`).join('')}
+  </div>`;
+
   document.getElementById('s-inventory').innerHTML=`<div class="shdr"><h2>在庫管理</h2><button class="btn bp bsm" style="width:auto" onclick="startNI()">+ 追加</button></div><div class="sbody">
-    <div class="field"><input type="search" placeholder="🔍 食材名で検索..." value="${iSrch}" oninput="iSrch=this.value;rInv()"></div>
+    <div class="field"><input type="search" placeholder="🔍 食材名で検索..." value="${iSrch}" oninput="iSrch=this.value;rInv()" style="margin-bottom:0"></div>
+    ${catTabs}
     <div class="tg mb2"><button class="tb${iFlt==='all'?' on':''}" onclick="iFlt='all';rInv()">全て</button><button class="tb${iFlt==='low'?' on':''}" onclick="iFlt='low';rInv()">⚠ 在庫少</button><button class="tb${iFlt==='expiry'?' on':''}" onclick="iFlt='expiry';rInv()">🕐 期限近</button></div>
     ${lstH||`<div class="empty"><div class="empty-icon">🌿</div><p>${DB.ingredients.length===0?'食材がまだ登録されていません':'条件に合う食材がありません'}</p></div>`}
   </div>`;
 }
 
-function startNI(){iEd=null;iF={name:'',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};iV='edit';rInv();}
-function startEI(id){iEd=DB.ingredients.find(i=>i.id===id);iF={name:iEd.name,currentStock:String(iEd.currentStock),initialStock:String(iEd.initialStock),purchasePrice:String(iEd.purchasePrice),purchaseAmount:String(iEd.purchaseAmount),expiryDate:iEd.expiryDate||''};iV='edit';rInv();}
+function startNI(){iEd=null;iF={name:'',category:'食材',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};iV='edit';rInv();}
+function startEI(id){iEd=DB.ingredients.find(i=>i.id===id);iF={name:iEd.name,category:iEd.category||'食材',currentStock:String(iEd.currentStock),initialStock:String(iEd.initialStock),purchasePrice:String(iEd.purchasePrice),purchaseAmount:String(iEd.purchaseAmount),expiryDate:iEd.expiryDate||''};iV='edit';rInv();}
 function delI(id){if(!confirm('この食材を削除しますか？'))return;DB.ingredients=DB.ingredients.filter(i=>i.id!==id);save();rInv();badge();toast('削除しました');}
 
 function rIngEdit(){
@@ -686,6 +762,11 @@ function rIngEdit(){
   document.getElementById('s-inventory').innerHTML=`<div class="shdr"><button class="bbk" onclick="iV='list';rInv()">←</button><h2>${iEd?'食材を編集':'食材を登録'}</h2><button class="btn bp bsm" style="width:auto" onclick="saveI()">保存</button></div>
   <div class="sbody">
     <div class="field"><label>食材・スパイス名 *</label><input type="text" value="${iF.name}" placeholder="例: クミンシード" oninput="iF.name=this.value"></div>
+    <div class="field"><label>カテゴリ</label><div class="tg">
+      <button class="tb${(iF.category||'食材')==='食材'?' on':''}" onclick="iF.category='食材';rIngEdit()">🥩 食材</button>
+      <button class="tb${(iF.category||'食材')==='調味料'?' on':''}" onclick="iF.category='調味料';rIngEdit()">🫙 調味料</button>
+      <button class="tb${(iF.category||'食材')==='スパイス'?' on':''}" onclick="iF.category='スパイス';rIngEdit()">🌿 スパイス</button>
+    </div></div>
     <div class="r2"><div class="field"><label>現在の在庫量 (g) *</label><input type="number" inputmode="decimal" value="${iF.currentStock}" placeholder="0" onchange="iF.currentStock=this.value"></div><div class="field"><label>初期在庫量 (g)</label><input type="number" inputmode="decimal" value="${iF.initialStock}" placeholder="現在量と同じ" onchange="iF.initialStock=this.value"></div></div>
     <div class="r2"><div class="field"><label>購入金額（円・税抜）*</label><input type="number" inputmode="decimal" value="${iF.purchasePrice}" placeholder="0" onchange="iF.purchasePrice=this.value;rIngEdit()"></div><div class="field"><label>購入量（g）*</label><input type="number" inputmode="decimal" value="${iF.purchaseAmount}" placeholder="0" onchange="iF.purchaseAmount=this.value;rIngEdit()"></div></div>
     ${u?`<div class="prev mb2"><div class="prow"><span class="plbl">自動計算 1gあたり単価</span><span class="fbold tgold" style="font-size:15px">¥${u}/g</span></div></div>`:''}
@@ -694,9 +775,21 @@ function rIngEdit(){
   </div>`;
 }
 
+// 食材名からカテゴリを自動判定
+function guessCategory(name){
+  const n=name;
+  // スパイス判定
+  const spices=['スパイス','パウダー','シード','クミン','コリアンダー','ターメリック','カルダモン','クローブ','シナモン','フェヌグリーク','マスタード','チリ','サフラン','フェンネル','シャヒジーラ','カレーリーフ','パプリカ','ガラムマサラ','アサフェティダ','アジョワン','カスリメティ','ニゲラ','アムチュール','カーリーリーフ','唐辛子','胡椒','山椒','八角','スターアニス','ナツメグ','メース'];
+  if(spices.some(s=>n.includes(s)))return 'スパイス';
+  // 調味料判定
+  const seasonings=['塩','砂糖','醤油','味噌','みりん','酢','油','オイル','ソース','タレ','ペースト','はちみつ','蜂蜜','糖','酒','ワイン','ビネガー','バター','ギー','クリーム','ヨーグルト','牛乳','ミルク','マヨ','ケチャップ','タマリンド','レモン汁','ライム','酸','甘','ガーリック','ジンジャー','GG'];
+  if(seasonings.some(s=>n.includes(s)))return '調味料';
+  return '食材';
+}
+
 function saveI(){
   if(!iF.name.trim()||!iF.currentStock||!iF.purchasePrice||!iF.purchaseAmount){toast('必須項目（名前・在庫量・価格・購入量）を入力してください','e');return;}
-  const i={id:iEd?.id||uid(),name:iF.name.trim(),currentStock:Number(iF.currentStock),initialStock:Number(iF.initialStock||iF.currentStock),purchasePrice:Number(iF.purchasePrice),purchaseAmount:Number(iF.purchaseAmount),expiryDate:iF.expiryDate||undefined,createdAt:iEd?.createdAt||new Date().toISOString()};
+  const i={id:iEd?.id||uid(),name:iF.name.trim(),category:iF.category||guessCategory(iF.name.trim()),currentStock:Number(iF.currentStock),initialStock:Number(iF.initialStock||iF.currentStock),purchasePrice:Number(iF.purchasePrice),purchaseAmount:Number(iF.purchaseAmount),expiryDate:iF.expiryDate||undefined,createdAt:iEd?.createdAt||new Date().toISOString()};
   if(iEd)DB.ingredients=DB.ingredients.map(x=>x.id===i.id?i:x);else DB.ingredients.push(i);
   save();iV='list';rInv();badge();toast(iEd?'食材を更新しました':'食材を登録しました');
 }
@@ -881,7 +974,7 @@ function importPreset(idx){
   let addedI=0;
   for(const ing of p.ings){
     if(DB.ingredients.find(i=>i.name===ing.name))continue;
-    DB.ingredients.push({id:uid(),name:ing.name,currentStock:ing.amount,initialStock:ing.amount,purchasePrice:ing.price,purchaseAmount:ing.amount,createdAt:new Date().toISOString()});
+    DB.ingredients.push({id:uid(),name:ing.name,category:guessCategory(ing.name),currentStock:ing.amount,initialStock:ing.amount,purchasePrice:ing.price,purchaseAmount:ing.amount,createdAt:new Date().toISOString()});
     addedI++;
   }
   // Add recipe
@@ -1004,6 +1097,7 @@ function confirmAiImport(jsonStr){
     if(DB.ingredients.find(i=>i.name===ing.name))continue;
     DB.ingredients.push({
       id:uid(), name:ing.name,
+      category:guessCategory(ing.name),
       currentStock:500, initialStock:500,
       purchasePrice:300, purchaseAmount:500,
       createdAt:new Date().toISOString()
