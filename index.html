@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c8790a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="コバタロ">
+<link rel="manifest" href="manifest.json">
+<title>コバタロカレー 店舗管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Antique+Soft&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans JP',system-ui,sans-serif;background:#0d0802;color:#ede5d8;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+:root{
+  --gold:#d4880f;--gold2:#e8a020;--gold-dim:#7a4806;--gold-bg:rgba(212,136,15,.08);
+  --s0:#0d0802;--s1:#161008;--s2:#1e1509;--s3:#27190b;--s4:#31200e;
+  --b1:#3a2210;--b2:#4e3018;--b3:#6a4222;
+  --t1:#ede5d8;--t2:#b8a898;--t3:#7a6855;--t4:#4a3c2e;
+  --red:#c0392b;--rbg:rgba(192,57,43,.12);--rb:rgba(192,57,43,.4);
+  --grn:#27ae60;--gbg:rgba(39,174,96,.1);--gb:rgba(39,174,96,.35);
+  --amb:#d4880f;--abg:rgba(212,136,15,.1);--ab:rgba(212,136,15,.35);
+  --r:16px;--rs:11px;--rx:8px;
+  --safe:env(safe-area-inset-bottom,0px);
+}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto}
+#hdr{flex-shrink:0;background:linear-gradient(135deg,var(--s1),var(--s2));border-bottom:1px solid var(--b1);padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:10}
+#hdr .logo{font-size:24px;line-height:1}
+#hdr .brand h1{font-family:'Zen Antique Soft',serif;font-size:14px;color:var(--gold);letter-spacing:.5px}
+#hdr .brand p{font-size:10px;color:var(--t3);margin-top:1px}
+#halert{margin-left:auto;background:var(--rbg);border:1px solid var(--rb);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#e74c3c;display:none;align-items:center;gap:4px;animation:pulse 2s infinite}
+#halert.on{display:flex}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+#main{flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#main::-webkit-scrollbar{width:3px}
+#main::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+#nav{flex-shrink:0;background:var(--s1);border-top:1px solid var(--b1);display:flex;height:calc(56px + var(--safe));padding-bottom:var(--safe)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;border:none;color:var(--t3);cursor:pointer;position:relative;padding:0;transition:color .2s;font-family:inherit}
+.nb.on{color:var(--gold)}
+.nb.on::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:2px;background:var(--gold);border-radius:0 0 2px 2px}
+.ni{font-size:19px;line-height:1}
+.nl{font-size:10px;font-weight:500}
+.nbadge{position:absolute;top:6px;right:calc(50% - 18px);background:#e74c3c;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:15px;height:15px;display:none;align-items:center;justify-content:center}
+.nbadge.on{display:flex}
+.scr{display:none;animation:fi .2s ease}
+.scr.on{display:block}
+@keyframes fi{from{opacity:.3}to{opacity:1}}
+.sbody{padding:14px 16px 80px}
+.shdr{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--b1);background:var(--s1);position:sticky;top:0;z-index:5}
+.shdr h2{font-size:15px;font-weight:700;flex:1}
+.bbk{background:transparent;border:none;color:var(--t2);font-size:18px;cursor:pointer;padding:2px 8px 2px 0;line-height:1}
+.card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.csm{background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);padding:11px 13px;margin-bottom:8px}
+.cgold{background:rgba(212,136,15,.06);border-color:var(--gold-dim)}
+.cwarn{border-color:var(--ab)}
+.cdanger{border-color:var(--rb)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.met{background:var(--s3);border:1px solid var(--b1);border-radius:var(--rs);padding:12px 14px}
+.mlbl{font-size:10px;color:var(--t3);margin-bottom:5px}
+.mval{font-size:20px;font-weight:700;line-height:1;color:var(--t1)}
+.mval .u{font-size:11px;font-weight:400;margin-left:2px}
+.mval.gold{color:var(--gold)}.mval.grn{color:var(--grn)}.mval.red{color:var(--red)}.mval.amb{color:var(--amb)}.mval.sm{font-size:16px}
+.field{margin-bottom:12px}
+.field label,.flbl{display:block;font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:500}
+input,select{width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);padding:13px 14px;color:var(--t1);font-size:14px;font-family:inherit;outline:none;appearance:none;-webkit-appearance:none;-moz-appearance:textfield;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--gold)}
+input::-webkit-inner-spin-button,input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath fill='%237a6855' d='M5 7L0 0h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tg{display:flex;gap:6px}
+.tb{flex:1;padding:11px 8px;border-radius:var(--rx);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--b2);background:var(--s3);color:var(--t2);font-family:inherit;transition:all .15s}
+.tb.on{background:rgba(212,136,15,.18);border-color:var(--gold);color:var(--gold)}
+.tb:active{transform:scale(.97)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:var(--rs);font-family:inherit;font-weight:700;cursor:pointer;transition:all .15s;-webkit-appearance:none}
+.btn:active{transform:scale(.97)}
+.bp{background:var(--gold);color:#fff;padding:13px 18px;font-size:14px;width:100%}
+.bp:active{background:var(--gold-dim)}
+.bp:disabled{opacity:.35;pointer-events:none}
+.bs{background:var(--s3);border:1px solid var(--b2);color:var(--t2);padding:13px 18px;font-size:14px}
+.brow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.bsm{padding:7px 12px;font-size:12px;border-radius:var(--rx)}
+.bog{background:rgba(212,136,15,.1);border:1px solid var(--gold-dim);color:var(--gold)}
+.bor{background:var(--rbg);border:1px solid var(--rb);color:#e74c3c}
+.bfw{width:100%}
+.abanner{background:var(--rbg);border:1px solid var(--rb);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.abtitle{font-size:11px;font-weight:700;color:#e74c3c;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.arow{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.arow+.arow{border-top:1px solid rgba(192,57,43,.15)}
+.arname{font-size:12px;color:var(--t2)}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px}
+.tr{background:var(--rbg);border:1px solid var(--rb);color:#e74c3c}
+.ta{background:var(--abg);border:1px solid var(--ab);color:#e8950d}
+.tg2{background:var(--gbg);border:1px solid var(--gb);color:#2ecc71}
+.tgr{background:var(--s3);border:1px solid var(--b2);color:var(--t3)}
+.pw{background:var(--s4);border-radius:100px;height:6px;overflow:hidden}
+.pb{height:100%;border-radius:100px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.pgrn{background:linear-gradient(to right,#1a5c35,#27ae60)}
+.pamb{background:linear-gradient(to right,#7a4806,#d4880f)}
+.pred{background:linear-gradient(to right,#7a2518,#c0392b)}
+.bchart{display:flex;align-items:flex-end;gap:4px;height:72px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bfill{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(to top,var(--gold-dim),var(--gold));transition:height .5s}
+.bdate{font-size:8px;color:var(--t4)}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper input{text-align:center;font-size:26px;font-weight:700;padding:14px 6px}
+.sbtn{width:52px;height:52px;flex-shrink:0;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:28px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;user-select:none}
+.sbtn:active{background:var(--s4)}
+.icrow{border:1px solid var(--b1);border-radius:var(--rs);padding:11px 12px;margin-bottom:8px}
+.icrow.warn{border-color:var(--ab);background:rgba(212,136,15,.04)}
+.icrow.danger{border-color:var(--rb);background:rgba(192,57,43,.06)}
+.ropt{width:100%;text-align:left;padding:14px 16px;border-radius:var(--rs);border:1px solid var(--b1);background:var(--s3);color:var(--t2);cursor:pointer;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-family:inherit;font-size:14px;transition:all .15s}
+.ropt.on{background:rgba(212,136,15,.1);border-color:var(--gold-dim);color:var(--t1)}
+.ropt:active{transform:scale(.99)}
+.picker{background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);max-height:200px;overflow-y:auto;margin-top:6px}
+.pi{padding:12px 14px;font-size:13px;color:var(--t1);cursor:pointer;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center}
+.pi:last-child{border-bottom:none}
+.pi:active{background:var(--s2)}
+.pmt{padding:14px;text-align:center;color:var(--t3);font-size:12px}
+.ier{border:1px solid var(--b1);border-radius:var(--rs);padding:11px 12px;margin-bottom:8px;background:var(--s3)}
+.cscr{text-align:center;padding:48px 24px}
+.ccirc{width:80px;height:80px;background:var(--gbg);border:2px solid var(--gb);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 18px}
+.toast{position:fixed;bottom:calc(70px + var(--safe));left:12px;right:12px;z-index:9999;border-radius:var(--r);padding:13px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;max-width:480px;margin:0 auto;animation:sU .3s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.ts{background:#071a0d;border:1px solid var(--gb);color:#2ecc71}
+.tw{background:#1a1005;border:1px solid var(--ab);color:#e8950d}
+.te{background:#1a0805;border:1px solid var(--rb);color:#e74c3c}
+@keyframes sU{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.stitle{font-size:11px;font-weight:600;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px}
+.prev{background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);padding:12px 14px;margin-top:10px}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+.prow+.prow{border-top:1px solid var(--b1);margin-top:4px;padding-top:8px}
+.plbl{font-size:12px;color:var(--t3)}
+.pval{font-size:14px;font-weight:700}
+.fb{display:flex;align-items:center}
+.fbb{display:flex;align-items:center;justify-content:space-between}
+.g2{gap:8px}.g3{gap:12px}
+.mt2{margin-top:8px}.mt3{margin-top:14px}.mt4{margin-top:20px}
+.mb2{margin-bottom:8px}
+.tgold{color:var(--gold)}.tmut{font-size:11px;color:var(--t3)}.tsm{font-size:12px;color:var(--t2)}
+.tgrn{color:var(--grn)}.tred{color:var(--red)}.tamb{color:var(--amb)}
+.fbold{font-weight:700}.wfull{width:100%}
+input[type=month]{padding:9px 12px;font-size:13px;width:auto}
+.empty{text-align:center;padding:52px 24px;color:var(--t3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty p{font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hdr">
+    <div class="logo">🍛</div>
+    <div class="brand"><h1>コバタロカレー</h1><p>店舗管理システム</p></div>
+    <div id="halert">⚠ <span id="acnt">0</span>件</div>
+  </header>
+  <main id="main">
+    <div id="s-dashboard" class="scr on"></div>
+    <div id="s-recipe"    class="scr"></div>
+    <div id="s-cooking"   class="scr"></div>
+    <div id="s-inventory" class="scr"></div>
+    <div id="s-settings"  class="scr"></div>
+  </main>
+  <nav id="nav">
+    <button class="nb on" onclick="go('dashboard')"><span class="ni">📊</span><span class="nl">売上</span><span class="nbadge" id="nbdg">!</span></button>
+    <button class="nb"    onclick="go('recipe')"><span class="ni">📝</span><span class="nl">レシピ</span></button>
+    <button class="nb"    onclick="go('cooking')"><span class="ni">🫕</span><span class="nl">仕込み</span></button>
+    <button class="nb"    onclick="go('inventory')"><span class="ni">🌿</span><span class="nl">在庫</span></button>
+    <button class="nb"    onclick="go('settings')"><span class="ni">⚙️</span><span class="nl">設定</span></button>
+  </nav>
+</div>
+<div id="tc"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────
+const SK='kobataro_v4';
+let DB={ingredients:[],recipes:[],sales:[]};
+
+function load(){try{const r=localStorage.getItem(SK);if(r)DB=Object.assign({ingredients:[],recipes:[],sales:[]},JSON.parse(r));}catch(e){}processExp();}
+function save(){try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function today(){return new Date().toISOString().slice(0,10);}
+function curYM(){return new Date().toISOString().slice(0,7);}
+
+// date utils
+function daysLeft(d){const t=new Date();t.setHours(0,0,0,0);const e=new Date(d);e.setHours(0,0,0,0);return Math.floor((e-t)/86400000);}
+function isExpD(d){return daysLeft(d)<0;}
+function isWarnD(d){const n=daysLeft(d);return n>=0&&n<=3;}
+
+// ingredient utils
+function up(i){return i.purchaseAmount?i.purchasePrice/i.purchaseAmount:0;}
+function isLow(i){return i.initialStock>0&&(i.currentStock/i.initialStock)<0.2;}
+function isExpI(i){return i.expiryDate&&isExpD(i.expiryDate);}
+function isWarnI(i){return i.expiryDate&&isWarnD(i.expiryDate);}
+function processExp(){let c=false;DB.ingredients=DB.ingredients.map(i=>{if(isExpI(i)&&i.currentStock>0){c=true;return{...i,currentStock:0};}return i;});if(c)save();}
+
+// recipe utils
+function potCost(r){return r.ingredients.reduce((s,ri)=>{const i=DB.ingredients.find(x=>x.id===ri.ingredientId);return s+(i?up(i)*ri.amountPerPot:0);},0);}
+function srvCost(r){return r.servingsPerPot?potCost(r)/r.servingsPerPot:0;}
+
+// sales utils
+function rent(r){return r.rentType==='fixed'?r.rentAmount:r.totalSales*(r.rentAmount/100);}
+function netP(r){const rec=DB.recipes.find(x=>x.id===r.recipeId);return r.totalSales-(rec?srvCost(rec):0)*r.servingsSold-rent(r)-r.otherExpenses;}
+function mSummary(ym){
+  const rs=DB.sales.filter(r=>r.date.startsWith(ym));
+  let ts=0,tc=0,tr=0,to=0,sv=0;
+  rs.forEach(r=>{ts+=r.totalSales;sv+=r.servingsSold;const rec=DB.recipes.find(x=>x.id===r.recipeId);tc+=(rec?srvCost(rec):0)*r.servingsSold;tr+=rent(r);to+=r.otherExpenses;});
+  return{ts,tc,tr,to,net:ts-tc-tr-to,cr:ts>0?(tc/ts)*100:0,sv,n:rs.length};
+}
+
+// alerts
+function getAlerts(){return DB.ingredients.filter(i=>isLow(i)||isWarnI(i));}
+function badge(){
+  const n=getAlerts().length;
+  const ha=document.getElementById('halert'),nb=document.getElementById('nbdg'),ac=document.getElementById('acnt');
+  if(n>0){ha.classList.add('on');ac.textContent=n;nb.textContent=n>9?'9+':n;nb.classList.add('on');}
+  else{ha.classList.remove('on');nb.classList.remove('on');}
+}
+
+// format
+function f(n){return Math.round(n).toLocaleString('ja-JP');}
+function ff(n,d=1){return parseFloat(n.toFixed(d)).toLocaleString('ja-JP');}
+
+// toast
+let tt;
+function toast(msg,t='s'){
+  const ic={s:'✓',w:'⚠',e:'✕'};const cl={s:'ts',w:'tw',e:'te'};
+  document.getElementById('tc').innerHTML=`<div class="toast ${cl[t]}"><span>${ic[t]}</span><span>${msg}</span></div>`;
+  clearTimeout(tt);tt=setTimeout(()=>{document.getElementById('tc').innerHTML='';},3500);
+}
+
+// ─── ROUTER ─────────────────────────────────────────────────
+let cur='dashboard';
+function go(tab){
+  if(cur===tab)return;cur=tab;
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>{
+    const oc=b.getAttribute('onclick');b.classList.toggle('on',oc&&oc.includes(`'${tab}'`));
+  });
+  document.getElementById(`s-${tab}`).classList.add('on');
+  document.getElementById('main').scrollTo(0,0);
+  render(tab);
+}
+function render(t){
+  if(t==='dashboard')rDash();
+  else if(t==='recipe')rRec();
+  else if(t==='cooking')rCook();
+  else if(t==='inventory')rInv();
+  else if(t==='settings')rSettings();
+  badge();
+}
+
+// ─── SCREEN 1: DASHBOARD ────────────────────────────────────
+let dYM=curYM(),dFO=false;
+let dF={date:today(),totalSales:'',servingsSold:'',recipeId:'',rentType:'fixed',rentAmount:'',otherExpenses:''};
+
+function rDash(){
+  const sc=document.getElementById('s-dashboard');
+  const al=getAlerts();
+  const m=mSummary(dYM);
+  const l7=[];
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);const rs=DB.sales.filter(r=>r.date===ds);l7.push({dt:ds.slice(5),s:rs.reduce((a,r)=>a+r.totalSales,0)});}
+  const mx=Math.max(...l7.map(d=>d.s),1);
+
+  const alH=al.length>0?`<div class="abanner">
+    <div class="abtitle">⚠ 要確認アラート ${al.length}件</div>
+    ${al.map(i=>`<div class="arow"><span class="arname">${i.name}</span><div class="tags">
+      ${isLow(i)?'<span class="tag tr">在庫少</span>':''}
+      ${isWarnI(i)?`<span class="tag ta">期限あと${daysLeft(i.expiryDate)}日</span>`:''}
+    </div></div>`).join('')}
+  </div>`:'';
+
+  let pvH='';
+  if(dFO&&dF.totalSales&&dF.recipeId&&dF.servingsSold){
+    const r=DB.recipes.find(x=>x.id===dF.recipeId);
+    const cps=r?srvCost(r):0;
+    const rn=dF.rentType==='fixed'?Number(dF.rentAmount):Number(dF.totalSales)*(Number(dF.rentAmount)/100);
+    const net=Number(dF.totalSales)-(cps*Number(dF.servingsSold))-rn-Number(dF.otherExpenses);
+    pvH=`<div class="prev"><div class="prow"><span class="plbl">純利益プレビュー</span><span class="pval ${net>=0?'tgrn':'tred'}">¥${f(net)}</span></div></div>`;
+  }
+
+  const ropts=DB.recipes.map(r=>`<option value="${r.id}"${dF.recipeId===r.id?' selected':''}>${r.name}</option>`).join('');
+
+  const frmH=dFO?`<div class="card mt3">
+    <div class="stitle" style="margin-bottom:12px">📊 売上を記録する</div>
+    <div class="field"><label>営業日</label><input type="date" value="${dF.date}" onchange="dF.date=this.value"></div>
+    <div class="field"><label>使用レシピ</label>
+      <select onchange="dF.recipeId=this.value;rDash()"><option value="">レシピを選択</option>${ropts}</select></div>
+    <div class="r2">
+      <div class="field"><label>総売上（円）</label><input type="number" inputmode="numeric" placeholder="0" value="${dF.totalSales}" onchange="dF.totalSales=this.value;rDash()"></div>
+      <div class="field"><label>販売食数（食）</label><input type="number" inputmode="numeric" placeholder="0" value="${dF.servingsSold}" onchange="dF.servingsSold=this.value;rDash()"></div>
+    </div>
+    <div class="field"><label>家賃タイプ</label><div class="tg">
+      <button class="tb${dF.rentType==='fixed'?' on':''}" onclick="dF.rentType='fixed';rDash()">固定額</button>
+      <button class="tb${dF.rentType==='percentage'?' on':''}" onclick="dF.rentType='percentage';rDash()">売上の%</button>
+    </div></div>
+    <div class="r2">
+      <div class="field"><label>家賃${dF.rentType==='fixed'?'（円）':'（%）'}</label><input type="number" inputmode="decimal" placeholder="0" value="${dF.rentAmount}" onchange="dF.rentAmount=this.value;rDash()"></div>
+      <div class="field"><label>その他経費（円）</label><input type="number" inputmode="numeric" placeholder="0" value="${dF.otherExpenses}" onchange="dF.otherExpenses=this.value;rDash()"></div>
+    </div>
+    ${pvH}
+    <div class="brow"><button class="btn bs" onclick="dFO=false;rDash()">キャンセル</button><button class="btn bp" onclick="saveSales()">保存する</button></div>
+  </div>`:'';
+
+  const recH=DB.sales.slice(0,12).map(r=>{
+    const net=netP(r);const rec=DB.recipes.find(x=>x.id===r.recipeId);
+    return`<div class="csm fbb"><div><div class="fbold" style="font-size:13px">${r.date}</div><div class="tmut">${rec?rec.name:'—'} · ${r.servingsSold}食</div></div><div style="text-align:right"><div class="fbold tgold" style="font-size:13px">¥${f(r.totalSales)}</div><div style="font-size:11px;color:${net>=0?'var(--grn)':'var(--red)'}">利益 ¥${f(net)}</div></div></div>`;
+  }).join('');
+
+  sc.innerHTML=`<div class="sbody">
+    ${alH}
+    <div class="fbb mb2">
+      <input type="month" value="${dYM}" onchange="dYM=this.value;rDash()">
+      <button class="btn bp bsm" style="width:auto;margin-left:10px" onclick="dFO=!dFO;rDash()">${dFO?'✕ 閉じる':'+ 売上入力'}</button>
+    </div>
+    <div class="metrics">
+      <div class="met"><div class="mlbl">総売上</div><div class="mval gold">¥${f(m.ts)}</div></div>
+      <div class="met" style="background:${m.net>=0?'rgba(39,174,96,.08)':'rgba(192,57,43,.08)'}"><div class="mlbl">純利益</div><div class="mval ${m.net>=0?'grn':'red'}">¥${f(m.net)}</div></div>
+      <div class="met"><div class="mlbl">総原価</div><div class="mval sm">¥${f(m.tc)}</div></div>
+      <div class="met" style="background:${m.cr>35?'rgba(192,57,43,.08)':'var(--s3)'}"><div class="mlbl">原価率</div><div class="mval ${m.cr>35?'red':'amb'}">${ff(m.cr)}<span class="u">%</span></div></div>
+      <div class="met"><div class="mlbl">支払家賃</div><div class="mval sm">¥${f(m.tr)}</div></div>
+      <div class="met"><div class="mlbl">販売食数</div><div class="mval sm">${f(m.sv)}<span class="u">食</span></div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="stitle">直近7日の売上</div>
+      <div class="bchart">${l7.map(d=>`<div class="bcol"><div class="bfill" style="height:${Math.max(2,(d.s/mx)*60)}px"></div><div class="bdate">${d.dt}</div></div>`).join('')}</div>
+    </div>
+    ${frmH}
+    ${DB.sales.length>0?`<div class="stitle mt3">最近の営業記録</div>${recH}`:''}
+    ${DB.sales.length===0&&!dFO?`<div class="empty"><div class="empty-icon">📋</div><p>売上記録がまだありません<br><span style="font-size:11px;color:var(--t4)">「+ 売上入力」から記録してください</span></p></div>`:''}
+  </div>`;
+}
+
+function saveSales(){
+  if(!dF.totalSales||!dF.servingsSold||!dF.recipeId){toast('必須項目を入力してください','e');return;}
+  DB.sales.unshift({id:uid(),date:dF.date,totalSales:Number(dF.totalSales),servingsSold:Number(dF.servingsSold),recipeId:dF.recipeId,rentType:dF.rentType,rentAmount:Number(dF.rentAmount)||0,otherExpenses:Number(dF.otherExpenses)||0,createdAt:new Date().toISOString()});
+  save();dFO=false;dF={date:today(),totalSales:'',servingsSold:'',recipeId:'',rentType:'fixed',rentAmount:'',otherExpenses:''};
+  rDash();badge();toast('売上を記録しました ✓');
+}
+
+// ─── SCREEN 2: RECIPE ───────────────────────────────────────
+let rV='list',rEd=null,rF={name:'',servings:'',ingredients:[]},rPO=false;
+
+function rRec(){if(rV==='edit'){rRecEdit();return;}
+  const items=DB.recipes.map(r=>{
+    const cp=potCost(r),cs=srvCost(r);
+    const ings=r.ingredients.map(ri=>{const i=DB.ingredients.find(x=>x.id===ri.ingredientId);return i?`<span class="tag tgr">${i.name} ${ri.amountPerPot}g</span>`:''}).join('');
+    return`<div class="card"><div class="fbb" style="margin-bottom:12px"><div><div class="fbold" style="font-size:15px">${r.name}</div><div class="tmut">${r.servingsPerPot}食/鍋 · ${r.ingredients.length}種類</div></div><div class="fb g2"><button class="btn bog bsm" onclick="startER('${r.id}')">編集</button><button class="btn bor bsm" onclick="delR('${r.id}')">削除</button></div></div>
+    <div class="r2" style="margin-bottom:${ings?'10px':'0'}"><div class="met"><div class="mlbl">鍋あたり原価</div><div class="mval sm">¥${f(cp)}</div></div><div class="met cgold"><div class="mlbl">1食あたり原価</div><div class="mval gold">¥${ff(cs)}</div></div></div>
+    ${ings?`<div class="tags" style="flex-wrap:wrap;gap:4px">${ings}</div>`:''}</div>`;
+  }).join('');
+  document.getElementById('s-recipe').innerHTML=`<div class="shdr"><h2>レシピ一覧</h2><button class="btn bp bsm" style="width:auto" onclick="startNR()">+ 新規</button></div><div class="sbody">${items||'<div class="empty"><div class="empty-icon">📝</div><p>レシピがまだ登録されていません</p></div>'}</div>`;
+}
+
+function startNR(){rEd=null;rF={name:'',servings:'',ingredients:[]};rPO=false;rV='edit';rRec();}
+function startER(id){rEd=DB.recipes.find(r=>r.id===id);rF={name:rEd.name,servings:String(rEd.servingsPerPot),ingredients:rEd.ingredients.map(i=>({...i}))};rPO=false;rV='edit';rRec();}
+function delR(id){if(!confirm('このレシピを削除しますか？'))return;DB.recipes=DB.recipes.filter(r=>r.id!==id);save();rRec();toast('削除しました');}
+
+function rRecEdit(){
+  const pv={id:'',name:rF.name,servingsPerPot:Number(rF.servings)||1,ingredients:rF.ingredients,createdAt:''};
+  const cp=potCost(pv),cs=srvCost(pv);
+  const avail=DB.ingredients.filter(i=>!rF.ingredients.find(r=>r.ingredientId===i.id));
+  const pickerH=rPO?`<div class="picker">${avail.length===0?'<div class="pmt">追加できる食材がありません</div>':avail.map(i=>`<div class="pi" onclick="addIR('${i.id}')"><span>${i.name}</span><span class="tmut">¥${ff(up(i),2)}/g</span></div>`).join('')}</div>`:'';
+  const ingR=rF.ingredients.map((ri,idx)=>{
+    const i=DB.ingredients.find(x=>x.id===ri.ingredientId);if(!i)return'';
+    const cost=up(i)*ri.amountPerPot;
+    return`<div class="ier"><div class="fbb mb2"><span class="fbold" style="font-size:13px">${i.name}</span><div class="fb g2"><span class="tgold fbold" style="font-size:13px">¥${ff(cost)}</span><button class="btn bor bsm" style="padding:4px 9px" onclick="remIR(${idx})">✕</button></div></div>
+    <input type="number" inputmode="decimal" placeholder="使用量 (g)" value="${ri.amountPerPot||''}" onchange="rF.ingredients[${idx}].amountPerPot=Number(this.value);rRec()">
+    <div class="tmut mt2">単価: ¥${ff(up(i),2)}/g</div></div>`;
+  }).join('');
+  document.getElementById('s-recipe').innerHTML=`<div class="shdr"><button class="bbk" onclick="rV='list';rRec()">←</button><h2>${rEd?'レシピを編集':'新規レシピ'}</h2><button class="btn bp bsm" style="width:auto" onclick="saveR()">保存</button></div>
+  <div class="sbody">
+    <div class="field"><label>レシピ名 *</label><input type="text" value="${rF.name}" placeholder="例: チキンカレー" oninput="rF.name=this.value"></div>
+    <div class="field"><label>1鍋あたりの食数 *</label><input type="number" inputmode="numeric" value="${rF.servings}" placeholder="例: 30" onchange="rF.servings=this.value;rRec()"></div>
+    ${rF.ingredients.length>0&&rF.servings?`<div class="card cgold mb2"><div class="stitle" style="margin-bottom:10px">💰 原価プレビュー</div><div class="fbb"><span class="tsm">1鍋の総原価</span><span class="fbold tgold">¥${f(cp)}</span></div><div class="fbb mt2"><span class="tsm">1食あたり原価</span><span class="fbold tamb" style="font-size:18px">¥${ff(cs)}</span></div></div>`:''}
+    <div class="fbb mb2"><div class="stitle" style="margin:0">使用食材・スパイス</div><button class="btn bog bsm" onclick="rPO=!rPO;rRec()">+ 追加</button></div>
+    ${pickerH}
+    ${ingR||`<div style="border:1px dashed var(--b2);border-radius:var(--rs);padding:24px;text-align:center;margin-top:4px"><p class="tmut">「+ 追加」から食材を選択してください</p></div>`}
+  </div>`;
+}
+
+function addIR(id){rF.ingredients.push({ingredientId:id,amountPerPot:0});rPO=false;rRec();}
+function remIR(idx){rF.ingredients.splice(idx,1);rRec();}
+function saveR(){
+  if(!rF.name.trim()||!rF.servings){toast('レシピ名と食数を入力してください','e');return;}
+  const r={id:rEd?.id||uid(),name:rF.name.trim(),servingsPerPot:Number(rF.servings),ingredients:[...rF.ingredients],createdAt:rEd?.createdAt||new Date().toISOString()};
+  if(rEd)DB.recipes=DB.recipes.map(x=>x.id===r.id?r:x);else DB.recipes.push(r);
+  save();rV='list';rRec();toast(rEd?'レシピを更新しました':'レシピを登録しました');
+}
+
+// ─── SCREEN 3: COOKING ──────────────────────────────────────
+let cSt={rid:'',pots:'',done:false,warns:[]};
+
+function rCook(){
+  if(cSt.done){rCookDone();return;}
+  const r=DB.recipes.find(x=>x.id===cSt.rid);
+  const pv=r&&cSt.pots?buildPv(r):[];
+  const hasI=pv.some(p=>p.ins);const hasE=pv.some(p=>p.ew);
+  const rbH=DB.recipes.map(rec=>`<button class="ropt${cSt.rid===rec.id?' on':''}" onclick="cSt.rid='${rec.id}';cSt.pots='';rCook()"><span>${rec.name}</span><span class="tag ${cSt.rid===rec.id?'ta':'tgr'}">${rec.servingsPerPot}食/鍋</span></button>`).join('');
+  const icH=pv.map(p=>`<div class="icrow${p.ins?' danger':p.wl||p.ew?' warn':''}"><div class="fbb mb2"><div class="fb g2"><span class="fbold" style="font-size:13px">${p.nm}</span>${p.ew?`<span class="tag ta">期限${p.dl}日</span>`:''}</div>${p.ins?'<span class="fbold tred" style="font-size:12px">在庫不足!</span>':`<span class="tmut">必要: ${p.nd.toFixed(0)}g</span>`}</div><div class="fb g2" style="align-items:center"><div class="pw" style="flex:1"><div class="pb ${p.ins?'pred':p.wl?'pamb':'pgrn'}" style="width:${Math.min(100,Math.max(0,p.pct))}%"></div></div><span style="font-size:11px;font-weight:700;min-width:52px;text-align:right;color:${p.ins?'var(--red)':p.wl?'var(--amb)':'var(--t2)'}">残${p.rm.toFixed(0)}g</span></div></div>`).join('');
+  document.getElementById('s-cooking').innerHTML=`<div class="shdr"><h2>🫕 今日の仕込み</h2></div><div class="sbody">
+    <div class="field"><div class="stitle mb2">仕込むレシピ</div>${rbH||'<p class="tmut">レシピが登録されていません</p>'}</div>
+    ${r?`<div class="field"><div class="stitle mb2">仕込み鍋数</div><div class="stepper"><button class="sbtn" onclick="cSt.pots=String(Math.max(1,(Number(cSt.pots)||0)-1));rCook()">−</button><input type="number" inputmode="numeric" placeholder="0" value="${cSt.pots}" onchange="cSt.pots=this.value;rCook()"><button class="sbtn" onclick="cSt.pots=String((Number(cSt.pots)||0)+1);rCook()">+</button></div>${cSt.pots?`<div class="tmut" style="text-align:center;margin-top:6px">= ${Number(cSt.pots)*r.servingsPerPot}食分</div>`:''}</div>
+    ${pv.length>0?`<div class="stitle mb2">使用食材チェック</div>${hasE?`<div class="card cwarn mb2" style="padding:10px 12px"><div class="fb g2"><span class="tamb">⚠</span><p style="font-size:12px;color:#e8950d">期限が近い材料が含まれています。使用前に状態を確認してください。</p></div></div>`:''}<br>${icH}<button class="btn bp mt3" style="font-size:15px;padding:15px" ${hasI?'disabled':''} onclick="confCook()">🫕 仕込みを確定する</button>`:''}`:''}
+  </div>`;
+}
+
+function buildPv(recipe){
+  return recipe.ingredients.map(ri=>{
+    const i=DB.ingredients.find(x=>x.id===ri.ingredientId);if(!i)return null;
+    const nd=ri.amountPerPot*Number(cSt.pots);const rm=i.currentStock-nd;
+    const pct=i.initialStock>0?(rm/i.initialStock)*100:100;
+    return{nm:i.name,id:i.id,nd,rm:Math.max(0,rm),pct,ins:rm<0,wl:rm>=0&&pct<20,ew:isWarnI(i),dl:i.expiryDate?daysLeft(i.expiryDate):null};
+  }).filter(Boolean);
+}
+
+function confCook(){
+  const r=DB.recipes.find(x=>x.id===cSt.rid);
+  if(!r||!cSt.pots){toast('レシピと鍋数を入力してください','e');return;}
+  const pv=buildPv(r);if(pv.some(p=>p.ins)){toast('在庫不足の食材があります','e');return;}
+  const ws=[];pv.forEach(p=>{if(p.wl)ws.push({nm:p.nm,is:'仕込み後20%未満'});if(p.ew)ws.push({nm:p.nm,is:`期限あと${p.dl}日`});});
+  DB.ingredients=DB.ingredients.map(i=>{const ri=r.ingredients.find(x=>x.ingredientId===i.id);if(!ri)return i;return{...i,currentStock:Math.max(0,i.currentStock-ri.amountPerPot*Number(cSt.pots))};});
+  save();cSt.done=true;cSt.warns=ws;rCook();badge();
+  if(ws.length>0)toast(`仕込み完了！ ${ws.length}件の注意あり`,'w');else toast('仕込みを確定しました ✓');
+}
+
+function rCookDone(){
+  const r=DB.recipes.find(x=>x.id===cSt.rid);
+  document.getElementById('s-cooking').innerHTML=`<div class="cscr"><div class="ccirc">✓</div><div class="fbold tgrn" style="font-size:22px;margin-bottom:6px">仕込み完了！</div><div class="tsm">${r?.name||''} ${cSt.pots}鍋分の仕込みを確定しました</div>
+  ${cSt.warns.length>0?`<div class="card cwarn mt4" style="text-align:left"><div class="stitle tamb mb2">⚠ 注意事項</div>${cSt.warns.map(w=>`<div class="fb g2 mt2"><span class="tamb" style="font-size:12px">●</span><span class="tsm"><strong>${w.nm}</strong>：${w.is}</span></div>`).join('')}</div>`:''}
+  <button class="btn bs bfw mt4" onclick="cSt={rid:'',pots:'',done:false,warns:[]};rCook()">新しい仕込みを開始</button></div>`;
+}
+
+// ─── SCREEN 4: INVENTORY ────────────────────────────────────
+let iV='list',iEd=null,iFlt='all',iSrch='';
+let iF={name:'',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};
+
+function rInv(){
+  if(iV==='edit'){rIngEdit();return;}
+  let items=DB.ingredients;
+  if(iSrch)items=items.filter(i=>i.name.includes(iSrch));
+  if(iFlt==='low')items=items.filter(i=>isLow(i));
+  if(iFlt==='expiry')items=items.filter(i=>isWarnI(i));
+  const lstH=items.map(i=>{
+    const u=up(i);const pct=i.initialStock>0?(i.currentStock/i.initialStock)*100:0;
+    const low=isLow(i),ew=isWarnI(i),exp=isExpI(i);const dl=i.expiryDate?daysLeft(i.expiryDate):null;
+    return`<div class="card${low||ew?' cwarn':''}"><div class="fbb mb2"><div style="flex:1;min-width:0"><div class="fb g2" style="flex-wrap:wrap;align-items:center"><span class="fbold" style="font-size:14px">${i.name}</span>${low?'<span class="tag tr">在庫少</span>':''}${ew&&!exp?`<span class="tag ta">あと${dl}日</span>`:''}${exp?'<span class="tag tr">期限切れ</span>':''}</div><div class="tmut mt2">単価: ¥${ff(u,2)}/g${i.expiryDate&&!exp&&dl!==null&&dl>3?` · 期限: ${i.expiryDate}`:''}</div></div><div class="fb g2" style="margin-left:10px;flex-shrink:0"><button class="btn bog bsm" onclick="startEI('${i.id}')">編集</button><button class="btn bor bsm" onclick="delI('${i.id}')">削除</button></div></div>
+    <div class="fbb mb2"><span class="tmut">${i.currentStock.toFixed(0)}g / ${i.initialStock}g</span><span class="fbold" style="font-size:11px;color:${low?'var(--red)':'var(--t3)'}">${pct.toFixed(0)}%</span></div>
+    <div class="pw"><div class="pb ${low?'pred':pct<50?'pamb':'pgrn'}" style="width:${Math.min(100,pct)}%"></div></div></div>`;
+  }).join('');
+  document.getElementById('s-inventory').innerHTML=`<div class="shdr"><h2>在庫管理</h2><button class="btn bp bsm" style="width:auto" onclick="startNI()">+ 追加</button></div><div class="sbody">
+    <div class="field"><input type="search" placeholder="🔍 食材名で検索..." value="${iSrch}" oninput="iSrch=this.value;rInv()"></div>
+    <div class="tg mb2"><button class="tb${iFlt==='all'?' on':''}" onclick="iFlt='all';rInv()">全て</button><button class="tb${iFlt==='low'?' on':''}" onclick="iFlt='low';rInv()">⚠ 在庫少</button><button class="tb${iFlt==='expiry'?' on':''}" onclick="iFlt='expiry';rInv()">🕐 期限近</button></div>
+    ${lstH||`<div class="empty"><div class="empty-icon">🌿</div><p>${DB.ingredients.length===0?'食材がまだ登録されていません':'条件に合う食材がありません'}</p></div>`}
+  </div>`;
+}
+
+function startNI(){iEd=null;iF={name:'',currentStock:'',initialStock:'',purchasePrice:'',purchaseAmount:'',expiryDate:''};iV='edit';rInv();}
+function startEI(id){iEd=DB.ingredients.find(i=>i.id===id);iF={name:iEd.name,currentStock:String(iEd.currentStock),initialStock:String(iEd.initialStock),purchasePrice:String(iEd.purchasePrice),purchaseAmount:String(iEd.purchaseAmount),expiryDate:iEd.expiryDate||''};iV='edit';rInv();}
+function delI(id){if(!confirm('この食材を削除しますか？'))return;DB.ingredients=DB.ingredients.filter(i=>i.id!==id);save();rInv();badge();toast('削除しました');}
+
+function rIngEdit(){
+  const u=(iF.purchasePrice&&iF.purchaseAmount)?(Number(iF.purchasePrice)/Number(iF.purchaseAmount)).toFixed(2):null;
+  document.getElementById('s-inventory').innerHTML=`<div class="shdr"><button class="bbk" onclick="iV='list';rInv()">←</button><h2>${iEd?'食材を編集':'食材を登録'}</h2><button class="btn bp bsm" style="width:auto" onclick="saveI()">保存</button></div>
+  <div class="sbody">
+    <div class="field"><label>食材・スパイス名 *</label><input type="text" value="${iF.name}" placeholder="例: クミンシード" oninput="iF.name=this.value"></div>
+    <div class="r2"><div class="field"><label>現在の在庫量 (g) *</label><input type="number" inputmode="decimal" value="${iF.currentStock}" placeholder="0" onchange="iF.currentStock=this.value"></div><div class="field"><label>初期在庫量 (g)</label><input type="number" inputmode="decimal" value="${iF.initialStock}" placeholder="現在量と同じ" onchange="iF.initialStock=this.value"></div></div>
+    <div class="r2"><div class="field"><label>購入金額（円）*</label><input type="number" inputmode="numeric" value="${iF.purchasePrice}" placeholder="0" onchange="iF.purchasePrice=this.value;rIngEdit()"></div><div class="field"><label>購入量（g）*</label><input type="number" inputmode="decimal" value="${iF.purchaseAmount}" placeholder="0" onchange="iF.purchaseAmount=this.value;rIngEdit()"></div></div>
+    ${u?`<div class="prev mb2"><div class="prow"><span class="plbl">自動計算 1gあたり単価</span><span class="fbold tgold" style="font-size:15px">¥${u}/g</span></div></div>`:''}
+    <div class="field"><label>消費期限（任意）</label><input type="date" value="${iF.expiryDate}" onchange="iF.expiryDate=this.value"></div>
+    <div class="brow"><button class="btn bs" onclick="iV='list';rInv()">キャンセル</button><button class="btn bp" onclick="saveI()">保存する</button></div>
+  </div>`;
+}
+
+function saveI(){
+  if(!iF.name.trim()||!iF.currentStock||!iF.purchasePrice||!iF.purchaseAmount){toast('必須項目（名前・在庫量・価格・購入量）を入力してください','e');return;}
+  const i={id:iEd?.id||uid(),name:iF.name.trim(),currentStock:Number(iF.currentStock),initialStock:Number(iF.initialStock||iF.currentStock),purchasePrice:Number(iF.purchasePrice),purchaseAmount:Number(iF.purchaseAmount),expiryDate:iF.expiryDate||undefined,createdAt:iEd?.createdAt||new Date().toISOString()};
+  if(iEd)DB.ingredients=DB.ingredients.map(x=>x.id===i.id?i:x);else DB.ingredients.push(i);
+  save();iV='list';rInv();badge();toast(iEd?'食材を更新しました':'食材を登録しました');
+}
+
+
+// ─── SCREEN 5: SETTINGS / IMPORT ────────────────────────────
+const PRESETS = [
+  {
+    label:'ハイデラバーディ チキンカッチビリヤニ',
+    emoji:'🍛',
+    servings:6,
+    ings:[
+      {name:"玉ねぎ",g:240,price:300,amount:2000},
+      {name:"鶏モモ骨付き",g:700,price:800,amount:700},
+      {name:"塩",g:7,price:200,amount:1000},
+      {name:"油",g:50,price:400,amount:1000},
+      {name:"GGペースト(生姜ニンニク)",g:40,price:300,amount:500},
+      {name:"グリーンチリ",g:4,price:200,amount:200},
+      {name:"パクチー茎",g:20,price:150,amount:100},
+      {name:"ヨーグルト",g:100,price:200,amount:500},
+      {name:"チリパウダー",g:6,price:400,amount:200},
+      {name:"ターメリック",g:1,price:300,amount:100},
+      {name:"コリアンダーパウダー",g:3,price:400,amount:200},
+      {name:"クミンパウダー",g:3,price:400,amount:200},
+      {name:"カルダモン",g:2,price:800,amount:100},
+      {name:"シナモン",g:1,price:500,amount:100},
+      {name:"クローブ",g:1,price:600,amount:100},
+      {name:"フェンネル",g:1,price:500,amount:100},
+      {name:"ビリヤニパウダー",g:1,price:500,amount:100},
+      {name:"バスマティ米",g:500,price:1200,amount:2000},
+      {name:"シャヒジーラ",g:3,price:800,amount:100},
+      {name:"サフラン(orターメリック)",g:0.2,price:500,amount:10},
+      {name:"ギー(バター)",g:20,price:800,amount:500},
+    ]
+  },
+  {
+    label:'ミルチカサラン',
+    emoji:'🥜',
+    servings:6,
+    ings:[
+      {name:"ピーナッツ(有塩)",g:20,price:300,amount:200},
+      {name:"カシューナッツ",g:10,price:600,amount:200},
+      {name:"ココナッツファイン",g:10,price:400,amount:200},
+      {name:"コリアンダーシード",g:3,price:400,amount:100},
+      {name:"クミンシード",g:3,price:400,amount:100},
+      {name:"油",g:30,price:400,amount:1000},
+      {name:"マスタードシード",g:2,price:400,amount:100},
+      {name:"玉ねぎ",g:100,price:300,amount:2000},
+      {name:"グリーンチリ",g:4,price:200,amount:200},
+      {name:"カレーリーフ",g:2,price:300,amount:50},
+      {name:"GGペースト(生姜ニンニク)",g:20,price:300,amount:500},
+      {name:"ターメリック",g:1,price:300,amount:100},
+      {name:"チリパウダー",g:1,price:400,amount:200},
+      {name:"タマリンドペースト",g:6,price:500,amount:200},
+      {name:"塩",g:2,price:200,amount:1000},
+    ]
+  },
+  {
+    label:'うずらアチャール(50〜55個版)',
+    emoji:'🥚',
+    servings:10,
+    ings:[
+      {name:"油",g:128,price:400,amount:1000},
+      {name:"マスタードシード",g:11,price:400,amount:100},
+      {name:"唐辛子(乾燥)",g:11,price:300,amount:50},
+      {name:"ターメリック",g:2,price:300,amount:100},
+      {name:"フェヌグリークパウダー",g:6,price:400,amount:100},
+      {name:"塩",g:12,price:200,amount:1000},
+      {name:"GGペースト(生姜ニンニク)",g:21,price:300,amount:500},
+      {name:"うずら缶(510g)",g:2168,price:2400,amount:2168},
+      {name:"米酢",g:106,price:300,amount:500},
+      {name:"レモン汁",g:21,price:300,amount:200},
+    ]
+  },
+  {
+    label:'スパイスソーダシロップ',
+    emoji:'🥤',
+    servings:10,
+    ings:[
+      {name:"生姜",g:20,price:200,amount:300},
+      {name:"唐辛子(乾燥)",g:3,price:300,amount:50},
+      {name:"ビリヤニパウダー",g:2,price:500,amount:100},
+      {name:"カルダモン",g:4,price:800,amount:100},
+      {name:"クローブ",g:1,price:600,amount:100},
+      {name:"シナモン",g:1,price:500,amount:100},
+      {name:"上白糖",g:70,price:200,amount:500},
+      {name:"はちみつ",g:50,price:600,amount:300},
+    ]
+  },
+];
+
+function rSettings(){
+  const sc=document.getElementById('s-settings');
+  const items=PRESETS.map((p,idx)=>{
+    const exists=DB.recipes.find(r=>r.name===p.label);
+    return`<div class="card">
+      <div class="fbb">
+        <div>
+          <div class="fbold" style="font-size:14px">${p.emoji} ${p.label}</div>
+          <div class="tmut">${p.servings}食分 · ${p.ings.length}種類の食材</div>
+        </div>
+        ${exists
+          ? '<span class="tag tg2">登録済み</span>'
+          : `<button class="btn bp bsm" style="width:auto" onclick="importPreset(${idx})">追加</button>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  sc.innerHTML=`<div class="shdr"><h2>⚙️ 設定・インポート</h2></div>
+  <div class="sbody">
+
+    <div class="stitle mb2">📋 メモからレシピをインポート</div>
+    <div class="tmut" style="margin-bottom:10px;line-height:1.7">自分のメモ帳からレシピをそのまま貼り付けるとAIが解析して登録します。</div>
+    <textarea id="memo-input" placeholder="ここにレシピのメモを貼り付けてください...&#10;&#10;例:&#10;チキンカレー&#10;鶏もも 500g&#10;玉ねぎ 200g&#10;トマト 100g&#10;クミン 5g" style="width:100%;height:140px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);padding:12px 14px;color:var(--t1);font-size:13px;font-family:inherit;resize:vertical;outline:none;line-height:1.6;margin-bottom:8px"></textarea>
+    <div class="field mb2">
+      <label>何食分ですか？</label>
+      <input type="number" inputmode="numeric" id="memo-servings" placeholder="例: 6" style="margin-bottom:0">
+    </div>
+    <button class="btn bp bfw" id="ai-import-btn" onclick="aiImport()">🤖 AIで解析してインポート</button>
+    <div id="ai-result" style="margin-top:10px"></div>
+
+    <div style="height:1px;background:var(--b1);margin:20px 0"></div>
+    <div class="stitle mb2">🧾 レシートから価格を読み込む</div>
+    <div class="tmut" style="margin-bottom:10px;line-height:1.7">レシートを撮影するとAIが食材名と価格・グラム数を読み取り、在庫の単価を自動更新します。</div>
+
+    <label for="receipt-input" style="display:block;width:100%;padding:18px;border-radius:var(--rs);border:2px dashed var(--b2);background:var(--s3);text-align:center;cursor:pointer;margin-bottom:8px;font-size:13px;color:var(--t2)">
+      <span id="receipt-label-text">📷 レシートの写真を選択 / 撮影</span>
+      <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display:none" onchange="onReceiptSelected(this)">
+    </label>
+    <div id="receipt-preview" style="display:none;margin-bottom:10px">
+      <img id="receipt-img" style="width:100%;border-radius:var(--rs);max-height:200px;object-fit:cover">
+    </div>
+    <button class="btn bp bfw" id="receipt-btn" onclick="analyzeReceipt()" style="display:none">🤖 レシートを解析して価格を更新</button>
+    <div id="receipt-result" style="margin-top:10px"></div>
+
+    <div style="height:1px;background:var(--b1);margin:20px 0"></div>
+    <div class="stitle mb2">レシピをワンタップで追加</div>
+    <div class="tmut mb2" style="margin-bottom:12px">食材も同時に登録されます。価格は仮の値なので、在庫画面で実際の金額に更新してください。</div>
+    ${items}
+    <div style="height:1px;background:var(--b1);margin:20px 0"></div>
+    <div class="stitle mb2">データ管理</div>
+    <button class="btn bs bfw" style="margin-bottom:10px" onclick="exportData()">📤 データをエクスポート</button>
+    <button class="btn" style="width:100%;padding:13px;border-radius:var(--rs);background:var(--rbg);border:1px solid var(--rb);color:#e74c3c;font-weight:700;font-family:inherit;font-size:14px" onclick="resetData()">🗑 全データをリセット</button>
+  </div>`;
+}
+
+function importPreset(idx){
+  const p=PRESETS[idx];
+  // Add ingredients (skip duplicates)
+  let addedI=0;
+  for(const ing of p.ings){
+    if(DB.ingredients.find(i=>i.name===ing.name))continue;
+    DB.ingredients.push({id:uid(),name:ing.name,currentStock:ing.amount,initialStock:ing.amount,purchasePrice:ing.price,purchaseAmount:ing.amount,createdAt:new Date().toISOString()});
+    addedI++;
+  }
+  // Add recipe
+  if(!DB.recipes.find(r=>r.name===p.label)){
+    const recipeIngs=p.ings.map(ri=>{
+      const ing=DB.ingredients.find(i=>i.name===ri.name);
+      return ing?{ingredientId:ing.id,amountPerPot:ri.g}:null;
+    }).filter(Boolean);
+    DB.recipes.push({id:uid(),name:p.label,servingsPerPot:p.servings,ingredients:recipeIngs,createdAt:new Date().toISOString()});
+  }
+  save();rSettings();badge();
+  toast(`${p.emoji} ${p.label}を追加しました！`);
+}
+
+function exportData(){
+  const json=JSON.stringify(DB,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='kobataro-backup-'+today()+'.json';
+  a.click();
+  toast('エクスポートしました');
+}
+
+function resetData(){
+  if(!confirm('全データを削除します。本当によいですか？'))return;
+  if(!confirm('本当に削除しますか？この操作は取り消せません。'))return;
+  DB={ingredients:[],recipes:[],sales:[]};
+  save();go('dashboard');toast('リセットしました','w');
+}
+
+async function aiImport(){
+  const memo = document.getElementById('memo-input').value.trim();
+  const servings = Number(document.getElementById('memo-servings').value) || 0;
+  if(!memo){ toast('メモを入力してください','e'); return; }
+
+  const btn = document.getElementById('ai-import-btn');
+  const res = document.getElementById('ai-result');
+  btn.disabled = true;
+  btn.textContent = '🤖 解析中...';
+  res.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:10px 0">AIがメモを読み取っています...</div>';
+
+  const prompt = `以下は料理レシピのメモです。このメモから食材リストを抽出してJSON形式で返してください。
+
+メモ:
+${memo}
+
+${servings ? `このレシピは${servings}食分です。` : 'レシピの食数も推定してください。'}
+
+以下のJSON形式のみで返してください。説明文は不要です：
+{
+  "recipeName": "レシピ名",
+  "servingsPerPot": 食数(数値),
+  "ingredients": [
+    {"name": "食材名", "amountPerPot": 使用量のg数(数値)}
+  ]
+}
+
+注意:
+- 食材名は日本語で
+- 重量の記載がないものは省略してOK
+- 調理手順の説明・メモ・感想は無視してください
+- amountPerPotは必ず数値(gまたはml換算)で`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    // Preview parsed result
+    res.innerHTML = `
+      <div style="background:var(--s3);border:1px solid var(--b2);border-radius:var(--rs);padding:14px;margin-top:4px">
+        <div class="fbold tgold" style="font-size:14px;margin-bottom:8px">📋 ${parsed.recipeName}</div>
+        <div class="tmut" style="margin-bottom:10px">${parsed.servingsPerPot}食分 · ${parsed.ingredients.length}種類の食材</div>
+        <div style="max-height:160px;overflow-y:auto;margin-bottom:12px">
+          ${parsed.ingredients.map(i=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1);font-size:12px"><span style="color:var(--t1)">${i.name}</span><span style="color:var(--t3)">${i.amountPerPot}g</span></div>`).join('')}
+        </div>
+        <button class="btn bp bfw" onclick='confirmAiImport(${JSON.stringify(JSON.stringify(parsed))})'>✓ これでインポートする</button>
+      </div>`;
+
+  } catch(e) {
+    res.innerHTML = `<div style="color:#e74c3c;font-size:12px;padding:10px 0;line-height:1.6">
+      解析に失敗しました。<br>
+      <span style="color:var(--t3)">インターネット接続を確認するか、メモの形式を変えて試してください。</span>
+    </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 AIで解析してインポート';
+  }
+}
+
+function confirmAiImport(jsonStr){
+  const parsed = JSON.parse(jsonStr);
+  let addedI = 0;
+  for(const ing of parsed.ingredients){
+    if(DB.ingredients.find(i=>i.name===ing.name))continue;
+    DB.ingredients.push({
+      id:uid(), name:ing.name,
+      currentStock:500, initialStock:500,
+      purchasePrice:300, purchaseAmount:500,
+      createdAt:new Date().toISOString()
+    });
+    addedI++;
+  }
+  if(!DB.recipes.find(r=>r.name===parsed.recipeName)){
+    const recipeIngs = parsed.ingredients.map(ri=>{
+      const ing = DB.ingredients.find(i=>i.name===ri.name);
+      return ing ? {ingredientId:ing.id, amountPerPot:ri.amountPerPot} : null;
+    }).filter(Boolean);
+    DB.recipes.push({
+      id:uid(), name:parsed.recipeName,
+      servingsPerPot:parsed.servingsPerPot,
+      ingredients:recipeIngs,
+      createdAt:new Date().toISOString()
+    });
+  }
+  save(); rSettings(); badge();
+  toast(`🍛 ${parsed.recipeName}を登録しました！`);
+}
+
+
+// ─── RECEIPT READER ─────────────────────────────────────────
+let receiptBase64 = null;
+let receiptMime = 'image/jpeg';
+
+function onReceiptSelected(input){
+  const file = input.files[0];
+  if(!file) return;
+  receiptMime = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = e => {
+    receiptBase64 = e.target.result.split(',')[1];
+    document.getElementById('receipt-preview').style.display = 'block';
+    document.getElementById('receipt-img').src = e.target.result;
+    document.getElementById('receipt-btn').style.display = 'block';
+    document.getElementById('receipt-label-text').textContent = '📷 ' + file.name + ' （タップで変更）';
+    document.getElementById('receipt-result').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeReceipt(){
+  if(!receiptBase64){ toast('画像を選択してください','e'); return; }
+
+  const btn = document.getElementById('receipt-btn');
+  const res = document.getElementById('receipt-result');
+  btn.disabled = true;
+  btn.textContent = '🤖 解析中...';
+  res.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:10px 0">レシートを読み取っています...</div>';
+
+  // 登録済み食材リストをプロンプトに含める
+  const ingNames = DB.ingredients.map(i => i.name).join('、');
+
+  const prompt = `このレシートの画像を読み取ってください。
+
+現在アプリに登録されている食材リスト：
+${ingNames || '（まだ食材が登録されていません）'}
+
+レシートに写っている商品の中から、上記の食材リストと一致しそうなものを探してください。
+商品名が多少違っても意味が同じなら対応させてください（例：「鶏もも肉」→「鶏モモ骨付き」）。
+
+以下のJSON形式のみで返してください。説明文は不要です：
+{
+  "items": [
+    {
+      "receiptName": "レシートに書かれた商品名",
+      "matchedName": "アプリの食材名（一致するものがなければnull）",
+      "price": 購入金額(円・数値),
+      "amount": 購入量(g・数値、記載なければnull),
+      "confidence": "high/medium/low"
+    }
+  ]
+}
+
+- priceは税込み金額を優先
+- amountはg表記がなければnull
+- 食材以外（袋代・割引・合計など）は除外`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: receiptMime, data: receiptBase64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    if(!parsed.items || parsed.items.length === 0){
+      res.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:10px 0">レシートから食材を読み取れませんでした。<br>より鮮明な写真で試してみてください。</div>';
+      return;
+    }
+
+    // チェックボックス付きプレビュー
+    const rows = parsed.items.map((item, idx) => {
+      const matched = item.matchedName && DB.ingredients.find(i => i.name === item.matchedName);
+      const confColor = item.confidence === 'high' ? 'var(--grn)' : item.confidence === 'medium' ? 'var(--amb)' : 'var(--t3)';
+      return `<div style="border:1px solid var(--b1);border-radius:var(--rx);padding:10px 12px;margin-bottom:8px;background:var(--s3)">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <input type="checkbox" id="ri-${idx}" ${matched ? 'checked' : ''} style="margin-top:3px;width:18px;height:18px;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:var(--t3)">${item.receiptName}</div>
+            ${matched
+              ? `<div style="font-size:13px;font-weight:700;color:var(--t1)">→ ${item.matchedName}</div>`
+              : `<div style="font-size:12px;color:var(--t3)">（未登録の食材）</div>`}
+            <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+              <span style="font-size:13px;font-weight:700;color:var(--gold)">¥<input type="number" inputmode="numeric" value="${item.price||''}" id="rp-${idx}" style="width:70px;display:inline;padding:2px 6px;font-size:13px;border-radius:6px;background:var(--s4);border:1px solid var(--b2);color:var(--gold);font-weight:700"></span>
+              ${item.amount ? `<span style="font-size:11px;color:var(--t3)">${item.amount}g</span>` : `<span style="font-size:11px;color:var(--t3)">g: <input type="number" inputmode="numeric" id="ra-${idx}" placeholder="?" style="width:55px;display:inline;padding:2px 6px;font-size:11px;border-radius:6px;background:var(--s4);border:1px solid var(--b2);color:var(--t2)"></span>`}
+              <span style="font-size:10px;color:${confColor}">● ${item.confidence}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    res.innerHTML = `
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px">${parsed.items.length}件を検出 — 更新する項目にチェックを入れてください</div>
+      ${rows}
+      <button class="btn bp bfw" onclick='applyReceiptPrices(${JSON.stringify(JSON.stringify(parsed.items))})'>✓ チェックした価格を反映する</button>`;
+
+  } catch(e) {
+    res.innerHTML = `<div style="color:#e74c3c;font-size:12px;padding:10px 0;line-height:1.6">
+      解析に失敗しました。<br>
+      <span style="color:var(--t3)">画像が不鮮明か、インターネット接続を確認してください。</span>
+    </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 レシートを解析して価格を更新';
+  }
+}
+
+function applyReceiptPrices(jsonStr){
+  const items = JSON.parse(jsonStr);
+  let updated = 0;
+  items.forEach((item, idx) => {
+    const cb = document.getElementById(`ri-${idx}`);
+    if(!cb || !cb.checked) return;
+    if(!item.matchedName) return;
+    const ing = DB.ingredients.find(i => i.name === item.matchedName);
+    if(!ing) return;
+
+    const priceEl = document.getElementById(`rp-${idx}`);
+    const amountEl = document.getElementById(`ra-${idx}`);
+    const price = Number(priceEl?.value) || item.price;
+    const amount = item.amount || Number(amountEl?.value) || ing.purchaseAmount;
+
+    if(price > 0){
+      ing.purchasePrice = price;
+      if(amount > 0) ing.purchaseAmount = amount;
+      updated++;
+    }
+  });
+
+  if(updated === 0){ toast('更新する項目がありません','w'); return; }
+  save();
+  document.getElementById('receipt-result').innerHTML = `<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:var(--rs);padding:12px 14px;color:var(--grn);font-weight:600;font-size:13px">✓ ${updated}件の食材価格を更新しました！<br><span style="font-size:11px;font-weight:400;color:var(--t2)">在庫・レシピ画面の原価に反映されました</span></div>`;
+  toast(`${updated}件の価格を更新しました ✓`);
+  receiptBase64 = null;
+}
+
+
+// ─── INIT ────────────────────────────────────────────────────
+load();rDash();badge();
+
+// Register Service Worker for PWA offline support
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js')
+      .then(r=>console.log('SW registered:',r.scope))
+      .catch(e=>console.log('SW failed:',e));
+  });
+}
+</script>
+</body>
+</html>

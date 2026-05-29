@@ -1,0 +1,28 @@
+{
+  "name": "コバタロカレー 店舗管理",
+  "short_name": "コバタロ",
+  "description": "間借りカレー屋コバタロカレーの店舗運営・利益管理システム",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0802",
+  "theme_color": "#d4880f",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["business", "food"],
+  "prefer_related_applications": false
+}
