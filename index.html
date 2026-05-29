@@ -14,17 +14,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Antique+Soft&display=swap" rel="stylesheet">
 <script type="module">
 import{initializeApp,getApps}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import{getFirestore,doc,setDoc,onSnapshot,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import{getDatabase,ref,set,onValue,get}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 window._fbInit=async function(cfg){
   try{
     const existing=getApps().find(a=>a.name===cfg.projectId);
     const app=existing||initializeApp(cfg,cfg.projectId);
-    const db=getFirestore(app);
+    const db=getDatabase(app);
     window._fbDb=db;
-    const ref=doc(db,'kobataro','data');
-    const snap=await getDoc(ref);
+    const r=ref(db,'kobataro/data');
+    const snap=await get(r);
     if(snap.exists()){
-      const remote=snap.data();
+      const remote=snap.val();
       if(!remote._ts||!window._localTs||remote._ts>=window._localTs){
         window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},remote);
         delete window.DB._ts;
@@ -33,12 +33,12 @@ window._fbInit=async function(cfg){
         window.badge();
       }
     } else {
-      await setDoc(ref,{...window.DB,_ts:Date.now()});
+      await set(r,{...window.DB,_ts:Date.now()});
     }
     if(window._fbUnsub)window._fbUnsub();
-    window._fbUnsub=onSnapshot(ref,s=>{
+    window._fbUnsub=onValue(r,s=>{
       if(!s.exists())return;
-      const d=s.data();
+      const d=s.val();
       if(d._ts&&window._lastSaveTs&&d._ts<=window._lastSaveTs)return;
       window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},d);
       delete window.DB._ts;
@@ -56,11 +56,11 @@ window._fbInit=async function(cfg){
 window._fbSave=async function(){
   if(!window._fbDb)return;
   try{
-    const{doc:d2,setDoc:s2}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    const ref=d2(window._fbDb,'kobataro','data');
+    const{ref:r2,set:s2}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
+    const r=r2(window._fbDb,'kobataro/data');
     window._lastSaveTs=Date.now();
-    await s2(ref,{...window.DB,_ts:window._lastSaveTs});
-  }catch(e){console.error('Firestore save error:',e);}
+    await s2(r,{...window.DB,_ts:window._lastSaveTs});
+  }catch(e){console.error('Realtime DB save error:',e);}
 };
 const saved=localStorage.getItem('fb_cfg');
 if(saved){try{window._fbInit(JSON.parse(saved));}catch(e){}}
@@ -673,6 +673,7 @@ function rSettings(){
       ${!fbConnected?`
       <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIza..." value="${fbCfg?JSON.parse(fbCfg).apiKey||'':''}"></div>
       <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="my-project-id" value="${fbCfg?JSON.parse(fbCfg).projectId||'':''}"></div>
+      <div class="field"><label>Database URL</label><input type="text" id="fb-dbUrl" placeholder="https://xxx-default-rtdb.firebaseio.com" value="${fbCfg?JSON.parse(fbCfg).databaseURL||'':''}"></div>
       <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:xxx:web:xxx" value="${fbCfg?JSON.parse(fbCfg).appId||'':''}"></div>
       <button class="btn bp bfw" onclick="connectFirebase()" style="margin-top:4px">接続する</button>
       <div id="fb-status" style="font-size:12px;margin-top:8px;color:var(--t3)"></div>
@@ -682,9 +683,9 @@ function rSettings(){
       <div class="stitle" style="margin-bottom:8px">🔧 取得方法</div>
       <div style="font-size:12px;color:var(--t2);line-height:1.8">
         1. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--gold)">Firebase Console</a> でプロジェクト作成<br>
-        2. 「ウェブアプリを追加」→ 設定値をコピー<br>
-        3. Firestore Database を作成（テストモード）<br>
-        4. 上のフォームに貼り付けて「接続する」
+        2. 「Realtime Database」→「データベースを作成」（テストモード）<br>
+        3. 「プロジェクトの設定」→「マイアプリ」→ ウェブアプリ追加<br>
+        4. apiKey・projectId・databaseURL・appId を下に貼り付け
       </div>
     </div>`:''}`;
 
@@ -1023,10 +1024,11 @@ async function connectFirebase(){
   const apiKey=document.getElementById('fb-apiKey')?.value.trim();
   const projectId=document.getElementById('fb-projectId')?.value.trim();
   const appId=document.getElementById('fb-appId')?.value.trim();
+  const databaseURL=document.getElementById('fb-dbUrl')?.value.trim();
   const st=document.getElementById('fb-status');
-  if(!apiKey||!projectId||!appId){toast('3項目すべて入力してください','e');return;}
+  if(!apiKey||!projectId||!appId||!databaseURL){toast('4項目すべて入力してください','e');return;}
   if(st)st.textContent='接続中...';
-  const cfg={apiKey,projectId,appId,authDomain:`${projectId}.firebaseapp.com`,storageBucket:`${projectId}.appspot.com`,messagingSenderId:'',databaseURL:''};
+  const cfg={apiKey,projectId,appId,databaseURL,authDomain:`${projectId}.firebaseapp.com`,storageBucket:`${projectId}.appspot.com`,messagingSenderId:''};
   const ok=await window._fbInit(cfg);
   if(ok){toast('Firebaseに接続しました ✓');rSettings();}
   else{if(st)st.innerHTML='<span style="color:var(--red)">接続失敗。API KeyとProject IDを確認してください</span>';}
