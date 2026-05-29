@@ -28,9 +28,9 @@ window._fbInit=async function(cfg){
       if(!remote._ts||!window._localTs||remote._ts>=window._localTs){
         window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},remote);
         delete window.DB._ts;
-        window.processExp();
-        window.render(window._curTab||'dashboard');
-        window.badge();
+        window._appProcessExp();
+        window._appRender(window._curTab||'dashboard');
+        window._appBadge();
       }
     } else {
       await set(r,{...window.DB,_ts:Date.now()});
@@ -42,9 +42,9 @@ window._fbInit=async function(cfg){
       if(d._ts&&window._lastSaveTs&&d._ts<=window._lastSaveTs)return;
       window.DB=Object.assign({ingredients:[],recipes:[],sales:[]},d);
       delete window.DB._ts;
-      window.processExp();
-      window.render(window._curTab||'dashboard');
-      window.badge();
+      window._appProcessExp();
+      window._appRender(window._curTab||'dashboard');
+      window._appBadge();
     });
     localStorage.setItem('fb_cfg',JSON.stringify(cfg));
     return true;
@@ -233,9 +233,18 @@ let DB={ingredients:[],recipes:[],sales:[]};
 window.DB=DB;
 window._curTab='dashboard';
 window._localTs=0;
-window.processExp=function(){processExp();};
-window.badge=function(){badge();};
-window.render=function(t){render(t);};
+// グローバル公開（Firebaseコールバック用）- 直接参照で無限ループ防止
+window._appRender=function(t){render(t);};
+window._appBadge=function(){badge();};
+window._appProcessExp=function(){
+  // processExpをDBに直接適用（save()を呼ばない）
+  let c=false;
+  DB.ingredients=DB.ingredients.map(i=>{
+    if(i.expiryDate&&new Date(i.expiryDate)<new Date()&&i.currentStock>0){c=true;return{...i,currentStock:0};}
+    return i;
+  });
+  if(c){try{localStorage.setItem('kobataro_v4',JSON.stringify(DB));}catch(e){}}
+};
 
 function load(){
   try{const r=localStorage.getItem(SK);if(r){DB=Object.assign({ingredients:[],recipes:[],sales:[]},JSON.parse(r));window.DB=DB;window._localTs=Date.now();}}catch(e){}
